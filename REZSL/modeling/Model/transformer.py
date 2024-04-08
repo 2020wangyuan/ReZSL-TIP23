@@ -5,7 +5,10 @@ import timm
 class ViT(nn.Module):
     def __init__(self, model_name="vit_large_patch16_224_in21k", pretrained=True):
         super(ViT, self).__init__()
-        self.vit = timm.create_model(model_name, pretrained=pretrained)
+        # self.vit = timm.create_model(model_name, pretrained=pretrained)
+        self.vit = timm.create_model(model_name, pretrained=False)
+        self.vit.load_state_dict(torch.load("/home/wangyuan/project/ReZSL/pretrained_model/VIT/pytorch_model.bin"))
+
         # Others variants of ViT can be used as well
         '''
         1 --- 'vit_small_patch16_224'

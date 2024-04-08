@@ -8,6 +8,28 @@ from scipy import linalg
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.utils.validation import check_is_fitted
 from sklearn.utils import check_array, as_float_array
+import random
+def random_mask(image_tensor, patch_size=16, mask_prob=0.75):
+    _, h, w = image_tensor.size()
+    mask = torch.ones_like(image_tensor)
+
+    # 计算需要遮挡的patch数量
+    total_patches = (h // patch_size) * (w // patch_size)
+    num_patches_to_mask = int(total_patches * mask_prob)
+
+    # 生成所有可能的patch的坐标
+    patch_coords = [(i, j) for i in range(0, h, patch_size) for j in range(0, w, patch_size)]
+
+    # 随机选择并遮挡patch
+    selected_coords = random.sample(patch_coords, num_patches_to_mask)
+    for coord in selected_coords:
+        top, left = coord
+        mask[:, top:top + patch_size, left:left + patch_size] = 0
+
+    # 获取被遮挡的patch的序号
+    masked_patch_indices = [patch_coords.index(coord) for coord in selected_coords]
+
+    return image_tensor * mask #masked_patch_indices
 
 def data_transform(name, size=224):
     name = name.strip().split('+')
@@ -18,7 +40,12 @@ def data_transform(name, size=224):
         transform.extend([
             transforms.Resize(int(size * 8. / 7.)),
             transforms.RandomCrop(size),
-            transforms.RandomHorizontalFlip(0.5)
+            transforms.RandomHorizontalFlip(0.5),
+            # 随机mask patch
+            transforms.ToTensor(),
+            transforms.Lambda(lambda x: random_mask(x, patch_size=16, mask_prob=0.5)),
+            transforms.ToPILImage()
+            # ###
         ])
     elif 'resize_center_crop' in name:
         transform.extend(
