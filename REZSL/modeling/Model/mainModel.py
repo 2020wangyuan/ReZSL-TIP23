@@ -531,8 +531,15 @@ class AttentionNet1(nn.Module):
                 return v2s, attentionMap
             else:
                 v2s = self.vit_attention_module(global_feat.view(B,C,1), patch_feat, support_att)  # B,312
-                reconstruct_x = self.mae.forward_decoder(patch_feat.permute(0, 2, 1),masked_one_hot)
-                return v2s,reconstruct_x
+                global_feat = global_feat.unsqueeze(1)
+                patch_feat = patch_feat.permute(0, 2, 1)
+                cls_and_x = torch.cat((global_feat, patch_feat), dim=1)
+                if masked_one_hot is not  None:
+                    reconstruct_x = self.mae.forward_decoder(cls_and_x,masked_one_hot)
+                    reconstruct_loss = self.mae.forward_loss(x, reconstruct_x,masked_one_hot)
+                    return v2s,reconstruct_x,reconstruct_loss
+                else:
+                    return v2s
 
     def vit_attention_module(self, global_feat, patch_feat, s, getAttention = False):
         """

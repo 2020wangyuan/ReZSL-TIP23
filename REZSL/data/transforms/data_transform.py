@@ -17,7 +17,7 @@ def batch_random_mask(images_tensor, patch_size=16, mask_prob=0.2):
         image_tensor , one_hot= random_mask(images_tensor[i], patch_size, mask_prob)
         images_tensor[i, :, :, :] = image_tensor[:, :, :]
         mask_one_hot.append(one_hot)
-    return images_tensor,mask_one_hot
+    return images_tensor, torch.from_numpy(np.array(mask_one_hot))
 
 def random_mask(image_tensor, patch_size=16, mask_prob=0.75):
     _, h, w = image_tensor.size()

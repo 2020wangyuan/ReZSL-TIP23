@@ -205,16 +205,25 @@ class MaskedAutoencoderViT(nn.Module):
     # parameter:
     # masked_one_hot : 1 is masked
     def forward_decoder(self, x, masked_one_hot=None):
+        cls_and_x = x
         # embed tokens
-        x = self.decoder_embed(x)
+        cls_and_x = self.decoder_embed(cls_and_x)
+        x = cls_and_x[:,1:,:]
+
+
 
         # 用mask_tokens替换掉被遮挡部分的编码
+        masked_one_hot = (1 - masked_one_hot)
+        masked_one_hot_expanded = masked_one_hot.unsqueeze(-1)
 
-        x = x * (1 - masked_one_hot)
-        mask_tokens = self.mask_token * masked_one_hot
+        x = x * masked_one_hot_expanded
+
+        mask_tokens = self.mask_token * masked_one_hot_expanded
         x += mask_tokens
 
         # add pos embed
+        cls_and_x[:,1:,:] = x
+        x = cls_and_x
         x = x + self.decoder_pos_embed
 
         # apply Transformer blocks
@@ -291,20 +300,17 @@ mae_vit_large_patch16 = mae_vit_large_patch16_dec512d8b  # decoder: 512 dim, 8 b
 mae_vit_huge_patch14 = mae_vit_huge_patch14_dec512d8b  # decoder: 512 dim, 8 blocks
 
 if __name__ == "__main__":
-    model = MaskedAutoencoderViT()
-    from PIL import Image
     import torch
-    from torchvision import transforms
 
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),  # 调整图像大小为224x224
-        transforms.ToTensor(),  # 转换为Tensor
-    ])
+    # 创建两个示例张量
+    tensor1 = torch.randn(2, 4, 3)
+    tensor2 = torch.tensor([[1,1,0,1],[1,0,0,1]])
 
-    img = Image.open(
-        "/home/wangyuan/project/data/CUB_200_2011/images/001.Black_footed_Albatross/Black_Footed_Albatross_0003_796136.jpg")
-    img = transform(img)
-    img = img.unsqueeze(0)
-    img = model(img)
+    # 将tensor2扩展为[32, 196, 1]
+    tensor2_expanded = tensor2.unsqueeze(-1)
 
+    # 执行逐元素乘法
+    result = tensor1 * tensor2_expanded
+
+    print(result.shape)  # 输出：torch.Size([32, 196, 512])
     pass

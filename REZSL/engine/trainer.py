@@ -73,7 +73,7 @@ def do_train(
 
             if model_type =="BasicNet" or model_type =="AttentionNet":
                 # v2s = model(x=batch_img, support_att=support_att_seen)
-                v2s = model(x=batch_img, support_att=support_att_seen,masked_one_hot=mask_one_hot)
+                v2s,reconstruct_x,reconstruct_loss = model(x=batch_img, support_att=support_att_seen,masked_one_hot=mask_one_hot)
 
                 if use_REZSL:
                     n = v2s.shape[0]
@@ -90,14 +90,14 @@ def do_train(
                 Lreg = Reg_loss(v2s, batch_att, weights)
                 Lcls = CLS_loss(score, batch_label)
 
-                loss = lamd[0] * Lcls + lamd[1] * Lreg
+                loss = lamd[0] * Lcls + lamd[1] * Lreg + 1*reconstruct_loss
 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
 
-                log_info = 'epoch: %d, it: %d/%d  |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, lr: %.10f' % \
-                           (epoch + 1, iteration, num_steps, loss, Lcls, Lreg, optimizer.param_groups[0]["lr"])
+                log_info = 'epoch: %d, it: %d/%d  |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss: %.4f, lr: %.10f' % \
+                           (epoch + 1, iteration, num_steps, loss, Lcls, Lreg, reconstruct_loss,optimizer.param_groups[0]["lr"])
                 print(log_info)
 
             if model_type =="GEMNet":
