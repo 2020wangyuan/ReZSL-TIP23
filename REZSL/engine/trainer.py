@@ -72,7 +72,8 @@ def do_train(
                 print('index: (%d, %d), max weight: %.4f, corresponding offset: %.4f, max offset: %.4f'%(d1, d2, ReZSL.running_weights_Matrix[d1][d2], ReZSL.running_offset_Matrix[d1][d2], torch.max(ReZSL.running_offset_Matrix)))
 
             if model_type =="BasicNet" or model_type =="AttentionNet":
-                v2s = model(x=batch_img, support_att=support_att_seen)
+                # v2s = model(x=batch_img, support_att=support_att_seen)
+                v2s = model(x=batch_img, support_att=support_att_seen,masked_one_hot=mask_one_hot)
 
                 if use_REZSL:
                     n = v2s.shape[0]

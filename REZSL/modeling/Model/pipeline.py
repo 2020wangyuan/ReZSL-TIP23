@@ -93,7 +93,7 @@ def build_AttentionNet(cfg):
 
     device = torch.device(cfg.MODEL.DEVICE)
 
-    return AttentionNet(backbone=backbone, backbone_type = backbone_type, ft_flag = ft_flag, img_size=img_size, hid_dim=hid_dim,
+    return AttentionNet1(backbone=backbone, backbone_type = backbone_type, ft_flag = ft_flag, img_size=img_size, hid_dim=hid_dim,
                   c=c, w=w, h=h, scale=scale,
                   attritube_num=attritube_num,
                   attr_group=attr_group, w2v=w2v,
