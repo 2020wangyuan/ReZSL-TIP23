@@ -5,7 +5,7 @@ import torch.distributed as dist
 from REZSL.utils.comm import *
 from .inferencer import eval_zs_gzsl
 from REZSL.modeling import weighted_RegressLoss,ADLoss, CPTLoss, build_zsl_pipeline, computeCoefficient, recordError, get_attributes_info, get_attr_group
-
+from REZSL.data.transforms.data_transform import batch_random_mask
 def do_train(
         model,
         ReZSL,
@@ -60,6 +60,7 @@ def do_train(
 
         for iteration, (batch_img, batch_att, batch_label) in enumerate(tr_dataloader):
             batch_img = batch_img.to(device)
+            batch_img,mask_one_hot = batch_random_mask(batch_img)
             batch_att = batch_att.to(device)
             batch_label = batch_label.to(device)
 

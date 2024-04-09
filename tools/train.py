@@ -10,6 +10,7 @@ import numpy as np
 import random
 
 from REZSL.data import build_dataloader
+
 from REZSL.modeling import build_zsl_pipeline, ReZSL, get_attributes_info
 from REZSL.solver import make_optimizer, make_lr_scheduler
 from REZSL.engine.trainer import do_train

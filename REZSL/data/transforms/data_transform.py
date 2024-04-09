@@ -9,6 +9,16 @@ from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.utils.validation import check_is_fitted
 from sklearn.utils import check_array, as_float_array
 import random
+
+def batch_random_mask(images_tensor, patch_size=16, mask_prob=0.2):
+    B, C, H, W = images_tensor.shape
+    mask_one_hot = []
+    for i in range(B):
+        image_tensor , one_hot= random_mask(images_tensor[i], patch_size, mask_prob)
+        images_tensor[i, :, :, :] = image_tensor[:, :, :]
+        mask_one_hot.append(one_hot)
+    return images_tensor,mask_one_hot
+
 def random_mask(image_tensor, patch_size=16, mask_prob=0.75):
     _, h, w = image_tensor.size()
     mask = torch.ones_like(image_tensor)
@@ -28,8 +38,9 @@ def random_mask(image_tensor, patch_size=16, mask_prob=0.75):
 
     # 获取被遮挡的patch的序号
     masked_patch_indices = [patch_coords.index(coord) for coord in selected_coords]
-
-    return image_tensor * mask #masked_patch_indices
+    masked_one_hot = np.zeros((14*14))
+    masked_one_hot[masked_patch_indices] = 1
+    return image_tensor * mask ,masked_one_hot
 
 def data_transform(name, size=224):
     name = name.strip().split('+')
@@ -41,10 +52,7 @@ def data_transform(name, size=224):
             transforms.Resize(int(size * 8. / 7.)),
             transforms.RandomCrop(size),
             transforms.RandomHorizontalFlip(0.5),
-            # 随机mask patch
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: random_mask(x, patch_size=16, mask_prob=0.5)),
-            transforms.ToPILImage()
+
             # ###
         ])
     elif 'resize_center_crop' in name:
