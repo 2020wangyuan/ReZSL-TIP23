@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import MultivariateNormal as MVN
 from .resnet import resnet101_features
-from .transformer import ViT
+from .transformer import ViT,ViT1
 from .mainModel import *
 from .utils import get_attributes_info, get_attr_group
 
@@ -79,8 +79,9 @@ def build_AttentionNet(cfg):
         c, w, h = 768, img_size // 16, img_size // 16
         #c, w, h = 1024, img_size // 16, img_size // 16 #for vit_large_patch16_224_in21k
         if img_size == 224:
-            backbone = ViT(model_name="vit_base_patch16_224", pretrained=pretrained)
+            #backbone = ViT(model_name="vit_base_patch16_224", pretrained=pretrained)
             #backbone = ViT(model_name="vit_large_patch16_224_in21k", pretrained=pretrained)
+            backbone = ViT1(model_name="google/vit-large-patch16-224-in21k", pretrained=pretrained)
         else: # img_size == 384
             backbone = ViT(model_name="vit_base_patch16_384", pretrained=pretrained)
 
