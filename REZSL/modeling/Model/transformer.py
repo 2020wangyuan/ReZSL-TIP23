@@ -42,15 +42,17 @@ class ViT1(nn.Module):
     def __init__(self, model_name='google/vit-large-patch16-224-in21k', pretrained=True):
         super(ViT1, self).__init__()
         if model_name == 'google/vit-large-patch16-224-in21k':
-            self.vit = ViTModel.from_pretrained("/home/wangyuan/project/ReZSL/pretrained_model/VIT/large/pytorch_model.bin")
+            self.vit = ViTModel.from_pretrained("/home/wangyuan/project/ReZSL/pretrained_model/VIT/large")
+            # self.vit = torch.load('/home/wangyuan/project/ReZSL/pretrained_model/VIT/large/pytorch_model.bin')
 
 
-+
+
+
     def forward(self, x):
-        outputs = self.vit(x)
+        outputs = self.vit(x,output_hidden_states = True)
         x = outputs.last_hidden_state
 
-        return x[:, 0], x[:, 1:]
+        return x[:, 0], x[:, 1:],outputs.hidden_states
 
 
 if __name__ == '__main__':

@@ -6,6 +6,7 @@ from REZSL.utils.comm import *
 from .inferencer import eval_zs_gzsl
 from REZSL.modeling import weighted_RegressLoss,ADLoss, CPTLoss, build_zsl_pipeline, computeCoefficient, recordError, get_attributes_info, get_attr_group
 from REZSL.data.transforms.data_transform import batch_random_mask
+import random
 def do_train(
         model,
         ReZSL,
@@ -26,7 +27,7 @@ def do_train(
         model_file_path,
         cfg
     ):
-
+    model.to(device)
     best_performance = [-0.1, -0.1, -0.1, -0.1, -0.1] # ZSL, S, U, H, AUSUC
     best_epoch = -1
     att_all = res['att_all'].to(device)
@@ -59,10 +60,18 @@ def do_train(
         model_type = cfg.MODEL.META_ARCHITECTURE
 
         for iteration, (batch_img, batch_att, batch_label) in enumerate(tr_dataloader):
+            #选择用于重构的隐藏层的输出feature
+            selected_layer = random.randint(0, 24)
+
             batch_img = batch_img.to(device)
-            batch_img,mask_one_hot = batch_random_mask(batch_img, mask_prob = 0.1)
+            batch_img,mask_one_hot = batch_random_mask(batch_img, mask_prob = 0.5)
             batch_att = batch_att.to(device)
             batch_label = batch_label.to(device)
+
+            new_height = int(224 / 2 ** int(selected_layer / 5))
+            new_width = int(224 / 2 ** int(selected_layer / 5))
+            resized_image = torch.nn.functional.interpolate(batch_img, size=(new_height, new_width), mode='bilinear', align_corners=False)
+
 
             if iteration%50==0:
                 index = torch.argmax(ReZSL.running_weights_Matrix)
@@ -73,7 +82,7 @@ def do_train(
 
             if model_type =="BasicNet" or model_type =="AttentionNet":
                 # v2s = model(x=batch_img, support_att=support_att_seen)
-                v2s,reconstruct_x,reconstruct_loss = model(x=batch_img, support_att=support_att_seen,masked_one_hot=mask_one_hot)
+                v2s,reconstruct_x,reconstruct_loss = model(x=batch_img,target_img = resized_image, support_att = support_att_seen,masked_one_hot=mask_one_hot,selected_layer = selected_layer,)
 
                 if use_REZSL:
                     n = v2s.shape[0]

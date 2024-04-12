@@ -76,8 +76,9 @@ def build_AttentionNet(cfg):
         backbone = resnet101_features(pretrained=pretrained, model_dir=model_dir)
     elif backbone_type == 'vit':
         # vit feature size
-        c, w, h = 768, img_size // 16, img_size // 16
-        #c, w, h = 1024, img_size // 16, img_size // 16 #for vit_large_patch16_224_in21k
+        # c, w, h = 768, img_size // 16, img_size // 16
+        # c, w, h = 1024, img_size // 16, img_size // 16
+        c, w, h = 1024, img_size // 16, img_size // 16 #for vit_large_patch16_224_in21k
         if img_size == 224:
             #backbone = ViT(model_name="vit_base_patch16_224", pretrained=pretrained)
             #backbone = ViT(model_name="vit_large_patch16_224_in21k", pretrained=pretrained)
