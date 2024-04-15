@@ -41,12 +41,14 @@ DATALOADER:
 
 SOLVER:
   MAX_EPOCH: 30000
-  BASE_LR: 4e-3
+  BASE_LR: 3e-3
   WEIGHT_DECAY: 1e-5
   MOMENTUM: 0.9
-  GAMMA: 0.1
+  GAMMA: 0.5
   STEPS: 10
   DATA_AUG: "resize_random_crop"
+
+
 
 TEST:
   IMS_PER_BATCH: 32

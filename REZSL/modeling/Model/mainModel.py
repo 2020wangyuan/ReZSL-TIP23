@@ -546,6 +546,7 @@ class AttentionNet1(nn.Module):
                 return v2s, attentionMap
             else:
                 v2s = self.vit_attention_module(global_feat.view(B, C, 1), patch_feat, support_att)  # B,312
+
                 if masked_one_hot is not None:
                     global_feat = global_feat.unsqueeze(1)
                     patch_feat = patch_feat.permute(0, 2, 1)

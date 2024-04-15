@@ -25,6 +25,7 @@ from REZSL.utils import ReDirectSTD, set_seed
 def train_model(cfg, local_rank, distributed):
     device = cfg.MODEL.DEVICE
     model = build_zsl_pipeline(cfg)
+
     tr_dataloader, tu_loader, ts_loader, res = build_dataloader(cfg, is_distributed=distributed)
 
     optimizer = make_optimizer(cfg, model)
