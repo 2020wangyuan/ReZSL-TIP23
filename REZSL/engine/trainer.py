@@ -68,7 +68,7 @@ def do_train(
             selected_layer = random.randint(0, 24)
 
             batch_img = batch_img.to(device)
-            batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.4)
+            batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.5)
             batch_att = batch_att.to(device)
             batch_label = batch_label.to(device)
 
