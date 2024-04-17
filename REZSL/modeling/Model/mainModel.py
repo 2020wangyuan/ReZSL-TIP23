@@ -518,11 +518,11 @@ class AttentionNet1(nn.Module):
                                                    requires_grad=True)  # S, H
 
         # 768 for base ViT , 1024 for large ViT
-        self.mae = [MaskedAutoencoderViT(img_size=224, patch_size=16, embed_dim=1024).to(device),
-                    MaskedAutoencoderViT(img_size=112, patch_size=8, embed_dim=1024).to(device),
-                    MaskedAutoencoderViT(img_size=56, patch_size=4, embed_dim=1024).to(device),
-                    MaskedAutoencoderViT(img_size=28, patch_size=2, embed_dim=1024).to(device),
-                    MaskedAutoencoderViT(img_size=14, patch_size=1, embed_dim=1024).to(device),
+        self.mae = [MaskedAutoencoderViT(img_size=224, patch_size=16, embed_dim=768).to(device),
+                    MaskedAutoencoderViT(img_size=112, patch_size=8, embed_dim=768).to(device),
+                    MaskedAutoencoderViT(img_size=56, patch_size=4, embed_dim=768).to(device),
+                    MaskedAutoencoderViT(img_size=28, patch_size=2, embed_dim=768).to(device),
+                    MaskedAutoencoderViT(img_size=14, patch_size=1, embed_dim=768).to(device),
                     ]
 
 
@@ -552,8 +552,8 @@ class AttentionNet1(nn.Module):
                     patch_feat = patch_feat.permute(0, 2, 1)
                     cls_and_x = torch.cat((global_feat, patch_feat), dim=1)
                     feature_to_be_recon = output_hidden_states[selected_layer]
-                    reconstruct_x = self.mae[int(selected_layer / 5)].forward_decoder(feature_to_be_recon, masked_one_hot)
-                    reconstruct_loss = self.mae[int(selected_layer / 5)].forward_loss(target_img, reconstruct_x, masked_one_hot)
+                    reconstruct_x = self.mae[int(selected_layer / 3)].forward_decoder(feature_to_be_recon, masked_one_hot)
+                    reconstruct_loss = self.mae[int(selected_layer / 3)].forward_loss(target_img, reconstruct_x, masked_one_hot)
                     return v2s, reconstruct_x, reconstruct_loss
                 else:
                     return v2s

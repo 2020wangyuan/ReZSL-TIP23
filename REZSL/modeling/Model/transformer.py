@@ -44,7 +44,8 @@ class ViT1(nn.Module):
         if model_name == 'google/vit-large-patch16-224-in21k':
             self.vit = ViTModel.from_pretrained("/home/wangyuan/project/ReZSL/pretrained_model/VIT/large")
             # self.vit = torch.load('/home/wangyuan/project/ReZSL/pretrained_model/VIT/large/pytorch_model.bin')
-
+        elif model_name == 'google/vit-base-patch16-224':
+            self.vit = ViTModel.from_pretrained("/home/wangyuan/project/ReZSL/pretrained_model/VIT/base")
 
 
 
@@ -65,5 +66,24 @@ if __name__ == '__main__':
     # r50_features = resnet50_features(pretrained=True)
     # print(r50_features)
 
-    vit_features = ViT(model_name='vit_base_patch16_224', pretrained=True)
-    print(vit_features)
+    vit_features = ViT1(model_name='google/vit-base-patch16-224', pretrained=True)
+
+    import torch
+    from torchvision import transforms
+    from PIL import Image
+
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),  # 调整大小为224x224
+        transforms.ToTensor()  # 将图像转换为张量
+    ])
+    image = Image.open("/home/wangyuan/project/data/CUB_200_2011/images/001.Black_footed_Albatross/Black_Footed_Albatross_0001_796111.jpg")
+    # 应用图像转换
+    image_tensor = transform(image)
+    # 添加批次维度
+    image_tensor = image_tensor.unsqueeze(0)
+
+    x,y,hid = vit_features(image_tensor)
+
+    pass
+
+
