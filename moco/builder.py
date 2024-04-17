@@ -46,11 +46,14 @@ class MoCo(nn.Module):
             param_k.data.copy_(param_q.data)  # initialize
             param_k.requires_grad = False  # not update by gradient
 
-        # create the queue
+        # 创建两个队列，一个包含编码后的特征，一个包含对应的类别标签
         self.register_buffer("queue", torch.randn(dim, K))
         self.queue = nn.functional.normalize(self.queue, dim=0)
-
         self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
+
+        self.register_buffer("label_queue", torch.zeros(dim, K))
+        self.register_buffer("label_queue_prt", torch.zeros(1, dtype=torch.long))
+
 
     @torch.no_grad()
     def _momentum_update_key_encoder(self):
