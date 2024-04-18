@@ -17,7 +17,7 @@ import copy
 class ImgDatasetParam(object):
     DATASETS = {
         "imgroot": '/home/wangyuan/project/data/CUB',
-        "dataroot": '/home/wangyuan/project/data/xlsa17/data',
+        "dataroot": '/home/wangyuan/project/DUET/data',
         "image_embedding": 'res101',
         "class_embedding": 'att'
     }
@@ -76,11 +76,15 @@ def build_dataloader(cfg, is_distributed=False):
     else:
         print('unrecognized SEMANTIC TYPE')
 
+    att_binary = matcontent['binary_att']
+
     train_img = new_img_files[trainvalloc]
     train_label = label[trainvalloc].astype(int)
     train_att = attribute[train_label]
+    train_att_binary = att_binary[train_label]
     train_id, idx = np.unique(train_label, return_inverse=True)
     train_att_unique = attribute[train_id]
+    train_att_binary_unique = torch.from_numpy(att_binary[train_id])
     train_clsname = cls_name[train_id]
 
     num_train = len(train_id)
@@ -91,12 +95,14 @@ def build_dataloader(cfg, is_distributed=False):
     test_label_unseen = label[test_unseen_loc].astype(int)
     test_id, idx = np.unique(test_label_unseen, return_inverse=True)
     att_unseen = attribute[test_id]
+    att_unseen_binary = att_binary[test_id]
     test_clsname = cls_name[test_id]
     test_label_unseen = idx + num_train
     test_id = np.unique(test_label_unseen)
 
     train_test_att = np.concatenate((train_att_unique, att_unseen))
     train_test_id = np.concatenate((train_id, test_id))
+    train_test_att_bin = np.concatenate((train_att_binary_unique, att_unseen_binary))
 
     test_img_seen = new_img_files[test_seen_loc]
     test_label_seen = label[test_seen_loc].astype(int)
@@ -122,7 +128,12 @@ def build_dataloader(cfg, is_distributed=False):
         'test_id': test_id,
         'train_test_id': train_test_id,
         'train_clsname': train_clsname,
-        'test_clsname': test_clsname
+        'test_clsname': test_clsname,
+        "train_att_binary":train_att_binary,
+        "att_unseen_binary":att_unseen_binary,
+        "train_test_att_bin":train_test_att_bin,
+        'train_att_binary_unique':train_att_binary_unique
+
     }
 
     # train dataloader

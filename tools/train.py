@@ -140,5 +140,7 @@ def main():
     torch.backends.cudnn.benchmark = True
     model = train_model(cfg, args.local_rank, args.distributed)
 
+    
+
 if __name__ == '__main__':
     main()
