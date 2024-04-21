@@ -6,6 +6,7 @@
 import torch
 import torch.nn as nn
 from .util import Sampler as my_sampler
+from .util import pad_tensor_list_to_uniform_length
 
 
 class MoCo(nn.Module):
@@ -15,7 +16,7 @@ class MoCo(nn.Module):
     """
 
     def __init__(self, build_AttentionNet, cfg,
-                 dim=128, K=65536, m=0.999,
+                 dim=128, K=8192, m=0.999,
                  T=0.07,
                  mlp=False, contrastive_learning=True):
         """
@@ -34,6 +35,8 @@ class MoCo(nn.Module):
         # num_classes is the output fc dimension
         self.encoder_q = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
         self.encoder_k = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
+
+        self.cosine_dis = self.encoder_q.cosine_dis
 
         if mlp:  # hack: brute-force replacement
             dim_mlp = self.encoder_q.fc.weight.shape[1]
@@ -72,9 +75,10 @@ class MoCo(nn.Module):
     # 因为它具有 self 参数。它的作用似乎是将一组键（keys）添加到一个队列中，
     # 然后从队列中取出一些键，以便队列保持一定的大小。
     @torch.no_grad()
-    def _dequeue_and_enqueue(self, keys):
+    def _dequeue_and_enqueue(self, keys,k_labels):
         # gather keys before updating queue
         keys = concat_all_gather(keys)
+        k_labels = concat_all_gather(k_labels)
 
         batch_size = keys.shape[0]
 
@@ -83,9 +87,11 @@ class MoCo(nn.Module):
 
         # replace the keys at ptr (dequeue and enqueue)
         self.queue[:, ptr: ptr + batch_size] = keys.T
+        self.label_queue[ptr: ptr + batch_size] = k_labels
         ptr = (ptr + batch_size) % self.K  # move pointer
 
         self.queue_ptr[0] = ptr
+        self.label_queue_prt[0] = ptr
 
     @torch.no_grad()
     def _batch_shuffle_ddp(self, x):
@@ -181,7 +187,7 @@ class MoCo(nn.Module):
 
         return logits, labels
 
-    def forward(self, x, target_img, support_att, masked_one_hot, selected_layer, q_labels=None, sampler=None):
+    def forward(self, x,support_att, target_img=None, masked_one_hot=None, selected_layer=0, q_labels=None, sampler=None):
         """
         在forward函数的基础上加入自己的代理任务
         Input:
@@ -191,51 +197,95 @@ class MoCo(nn.Module):
         Output:
             logits, targets
         """
-        loss = []
-        cl_times = 0
-        if sampler is not None:
-            neg_samples_list, pos_sample_list = sampler.samples(q_labels, self.label_queue,
-                                                                     self.label_queue_prt)
+
+        pos_cat_neg_samples = None
+        valid_q = None
+        CLloss = None
+
 
         # compute query features
-        q = self.encoder_q(x=x, target_img=target_img,
-                           support_att=support_att, masked_one_hot=masked_one_hot,
-                           selected_layer=selected_layer, )  # queries: NxC
-        q = nn.functional.normalize(q, dim=1)
 
-        # compute key features
-        with torch.no_grad():  # no gradient to keys
-            self._momentum_update_key_encoder()  # update the key encoder
 
-            # shuffle for making use of BN
-            im_k, idx_unshuffle = self._batch_shuffle_ddp(im_k)
 
-            k = self.encoder_k(im_k)  # keys: NxC
-            k = nn.functional.normalize(k, dim=1)
+        if sampler is not None:
 
-            # undo shuffle
-            k = self._batch_unshuffle_ddp(k, idx_unshuffle)
 
-        # compute logits
-        # Einstein sum is more intuitive
-        # positive logits: Nx1
-        l_pos = torch.einsum("nc,nc->n", [q, k]).unsqueeze(-1)
-        # negative logits: NxK
-        l_neg = torch.einsum("nc,ck->nk", [q, self.queue.clone().detach()])
 
-        # logits: Nx(1+K)
-        logits = torch.cat([l_pos, l_neg], dim=1)
+            neg_samples_list, pos_sample_list = sampler.samples(q_labels, self.label_queue,
+                                                                     self.label_queue_prt)
+            v2s, reconstruct_x, reconstruct_loss, q = self.encoder_q(x=x, target_img=target_img,
+                                                                     support_att=support_att,
+                                                                     masked_one_hot=masked_one_hot,
+                                                                     selected_layer=selected_layer,
+                                                                     sampled_atts=sampler.target_att)  # queries: NxC
+            q = nn.functional.normalize(q, dim=1)
+            legal_samples_list_index= [i for i in range(len(pos_sample_list)) if len(neg_samples_list[i]) !=0 and len(pos_sample_list[i]) !=0]
+            if len(legal_samples_list_index) != 0 :
+                pos_cat_neg_samples = []
+                valid_q = q[legal_samples_list_index]
+                valid_q = torch.tensor(valid_q)
+                for i in legal_samples_list_index:
+                    sample_list = pos_sample_list[i] + neg_samples_list[i]
+                    cat_samples = []
+                    for j in sample_list:
+                        j = int(j)
+                        sample = self.queue[:,j].clone().detach()
+                        cat_samples.append(sample)
+                    cat_samples = torch.stack(cat_samples, dim=1)
 
-        # apply temperature
-        logits /= self.T
 
-        # labels: positive key indicators
-        labels = torch.zeros(logits.shape[0], dtype=torch.long).cuda()
+                    pos_cat_neg_samples.append(cat_samples)
 
-        # dequeue and enqueue
-        self._dequeue_and_enqueue(k)
 
-        return logits, labels
+
+
+            with torch.no_grad():  # no gradient to keys
+                self._momentum_update_key_encoder()  # update the key encoder
+
+                # shuffle for making use of BN
+                im_k, idx_unshuffle = self._batch_shuffle_ddp(x)
+
+                _, _, _, k = self.encoder_k(x=im_k, target_img=target_img,
+                                            support_att=support_att, masked_one_hot=masked_one_hot,
+                                            selected_layer=selected_layer, sampled_atts=sampler.target_att)  # keys: NxC
+                k = nn.functional.normalize(k, dim=1)
+
+                # undo shuffle
+                k = self._batch_unshuffle_ddp(k, idx_unshuffle)
+
+            if valid_q is not None:
+                # negative logits: NxK
+                logits_all = []
+                for i in range(len(valid_q)):
+                    logits = torch.einsum("c,ck->k", valid_q[i], pos_cat_neg_samples[i])
+                    logits_all.append(logits)
+                logits_all = pad_tensor_list_to_uniform_length(logits_all)
+
+                logits_all /= self.T
+
+
+
+
+
+
+
+                labels = torch.zeros(logits_all.shape[0], dtype=torch.long).cuda()
+                CLloss = nn.CrossEntropyLoss()(logits_all, labels)
+            # dequeue and enqueue
+
+            self._dequeue_and_enqueue(k, q_labels)
+            return v2s, reconstruct_x, reconstruct_loss, CLloss
+
+        else:
+            v2s= self.encoder_q(x=x,
+                                                                     support_att=support_att,
+
+
+                                                                     )  # queries: NxC
+
+
+            return v2s
+
 
 
 # utils

@@ -5,6 +5,7 @@ import random
 class Sampler:
     """
     用于采样出正负类别的 类
+    成员变量里的target_att是被选作目标属性的属性
     """
 
     def __init__(self, atts_binary, train_att_binary, neg_class_number=1):
@@ -15,6 +16,7 @@ class Sampler:
         self.target_att_prob = compute_target_att_prob(train_att_binary).to('cuda')
         self.positive_and_negative_class_Wrt_atts = get_positive_and_negative_class_Wrt_atts(atts_binary).to('cuda')
         self.neg_class_number = neg_class_number
+        self.target_att = []
 
     def sample_target_att(self, image_att_binary):
         """
@@ -33,6 +35,9 @@ class Sampler:
         """
         image_att_binary = self.atts_binary[target_class]
         target_att = self.sample_target_att(image_att_binary)
+        while target_att == 145:
+            target_att = self.sample_target_att(image_att_binary)
+        self.target_att.append(target_att)
 
         sim = self.classed_sim[target_class]
 
@@ -53,7 +58,7 @@ class Sampler:
         返回字典中被选作样本的下标
         """
         neg_classes, pos_class = self.sample_positive_and_negative_class(target_class)
-        neg_samples = [label_queue[i] for i in range(0, label_ptr) if label_queue[i] in neg_classes]
+        neg_samples = [i for i in range(0, label_ptr) if label_queue[i] in neg_classes]
         pos_sample_candidates = [label_queue[i] for i in range(0, label_ptr) if label_queue[i] == pos_class]
         if len(pos_sample_candidates) != 0:
             pos_sample = random.sample(pos_sample_candidates, 1)
@@ -67,6 +72,7 @@ class Sampler:
         返回字典中被选作样本的下标
         """
         images_att_binary = self.atts_binary[targets_class]
+        self.target_att = []
         neg_samples_list = []
         pos_sample_list = []
         for i in range(0, len(images_att_binary)):
@@ -115,6 +121,30 @@ def get_positive_and_negative_class_Wrt_atts(atts_binary):
     将类别二进制属性转置即可获取到集合，0代表可能成为负样本，1代表可能成为正样本。
     """
     return torch.transpose(atts_binary, 0, 1)
+
+def pad_tensor_list_to_uniform_length(tensor_list):
+    """
+    将张量列表中的张量长度调整为统一长度。
+
+    Args:
+        tensor_list (list): 包含张量的列表。
+
+    Returns:
+        list: 调整后的张量列表，所有张量的长度相同。
+    """
+    # 找到列表中最长的张量的长度
+    max_length = max(len(tensor) for tensor in tensor_list)
+
+    # 将列表中的所有张量长度调整为最长的张量长度
+    for i, tensor in enumerate(tensor_list):
+        padding_length = max_length - len(tensor)
+        # 使用 torch.pad() 函数进行填充
+        tensor_list[i] = torch.nn.functional.pad(tensor, (0, padding_length), mode='constant', value=0)
+
+    return torch.stack(tensor_list, dim=0)
+
+
+
 
 
 if __name__ == "__main__":

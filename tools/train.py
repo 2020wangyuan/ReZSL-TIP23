@@ -95,6 +95,7 @@ def train_model(cfg, local_rank, distributed):
 
 
 def main():
+
     parser = argparse.ArgumentParser(description="PyTorch Zero-Shot Learning Training")
     parser.add_argument(
         "--config-file",
@@ -147,4 +148,7 @@ def main():
     
 
 if __name__ == '__main__':
+    torch.distributed.init_process_group('nccl', world_size = 1,rank = 0,init_method = 'file:/home/wangyuan/project/ReZSL/distributed/init_file')
+
+
     main()

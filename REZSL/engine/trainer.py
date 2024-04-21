@@ -58,6 +58,9 @@ def do_train(
         cls_loss_epoch = []
         reg_loss_epoch = []
         reconstruct_loss_epoch = []
+        contrastive_learning_loss_epoch = []
+
+        CL_loss = None
 
         scheduler.step()
 
@@ -94,7 +97,7 @@ def do_train(
                                                                  support_att=support_att_seen, masked_one_hot=mask_one_hot,
                                                                  selected_layer=selected_layer)
                 else:
-                    v2s, reconstruct_x, reconstruct_loss = model(x=batch_img, target_img=resized_image,
+                    v2s, reconstruct_x, reconstruct_loss ,CL_loss= model(x=batch_img, target_img=resized_image,
                                                              support_att=support_att_seen, masked_one_hot=mask_one_hot,
                                                              selected_layer=selected_layer, sampler=cl_sampler,
                                                              q_labels=batch_label)
@@ -110,20 +113,31 @@ def do_train(
                 if model.module == None:
                     score, cos_dist = model.cosine_dis(pred_att=v2s, support_att=support_att_seen)
                 else:
-                    score, cos_dist = model.module.cosine_dis(pred_att=v2s, support_att=support_att_seen)
+                    if model_type == "MoCo":
+                        score, cos_dist = model.module.encoder_q.cosine_dis(pred_att=v2s, support_att=support_att_seen)
+                        pass
+                    else:
+                        score, cos_dist = model.module.cosine_dis(pred_att=v2s, support_att=support_att_seen)
 
                 Lreg = Reg_loss(v2s, batch_att, weights)
                 Lcls = CLS_loss(score, batch_label)
 
                 loss = lamd[0] * Lcls + lamd[1] * Lreg + 1 * reconstruct_loss
+                if CL_loss is not None:
+                    loss += CL_loss * 1
 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+                if CL_loss is None:
 
-                log_info = 'epoch: %d, it: %d/%d  |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss: %.4f, lr: %.10f' % \
-                           (epoch + 1, iteration, num_steps, loss, Lcls, Lreg, reconstruct_loss,
-                            optimizer.param_groups[0]["lr"])
+                    log_info = 'epoch: %d, it: %d/%d  |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss: %.4f, lr: %.10f' % \
+                               (epoch + 1, iteration, num_steps, loss, Lcls, Lreg, reconstruct_loss,
+                                optimizer.param_groups[0]["lr"])
+                else:
+                    log_info = 'epoch: %d, it: %d/%d  |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss: %.4f, CL_loss: %.4f, lr: %.10f' % \
+                               (epoch + 1, iteration, num_steps, loss, Lcls, Lreg, reconstruct_loss, CL_loss,
+                                optimizer.param_groups[0]["lr"])
                 print(log_info)
 
             if model_type == "GEMNet":
@@ -166,6 +180,8 @@ def do_train(
             cls_loss_epoch.append(Lcls.item())
             reg_loss_epoch.append(Lreg.item())
             reconstruct_loss_epoch.append(reconstruct_loss.item())
+            if CL_loss is not None:
+                contrastive_learning_loss_epoch.append(CL_loss.item())
 
         if is_main_process():
             losses += loss_epoch
@@ -176,9 +192,12 @@ def do_train(
             cls_loss_epoch_mean = sum(cls_loss_epoch) / len(cls_loss_epoch)
             reg_loss_epoch_mean = sum(reg_loss_epoch) / len(reg_loss_epoch)
             reconstruct_loss_epoch_mean = sum(reconstruct_loss_epoch) / len(reconstruct_loss_epoch)
-            log_info = 'epoch: %d |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss_epoch: %.4f, lr: %.10f' % \
+
+            contrastive_learning_loss_epoch_mean = sum(contrastive_learning_loss_epoch) / len(contrastive_learning_loss_epoch)
+
+            log_info = 'epoch: %d |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss_epoch: %.4f, contrastive_learning_loss_epoch: %.4f, lr: %.10f' % \
                        (epoch + 1, loss_epoch_mean, cls_loss_epoch_mean, reg_loss_epoch_mean,
-                        reconstruct_loss_epoch_mean,
+                        reconstruct_loss_epoch_mean,contrastive_learning_loss_epoch_mean,
                         optimizer.param_groups[0]["lr"])
             print(log_info)
         mask = torch.gt(ReZSL.mean_value, 0.0)

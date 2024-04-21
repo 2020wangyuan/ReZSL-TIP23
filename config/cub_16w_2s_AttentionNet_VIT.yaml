@@ -3,8 +3,8 @@ LOG_FILE_NAME: "AttentionNet(vit224,hid:0)_SGD(lr=5e-4)_NCE_Ablation_Global+Atte
 MODEL_FILE_NAME: "AttentionNet(vit224,hid:0)_SGD(lr=5e-4)_NCE_Ablation_Global+Attentive+ReMSE_seed=214.pth"
 SEED: 214
 MODEL:
-  META_ARCHITECTURE: "AttentionNet"
-  # META_ARCHITECTURE: "MoCo"
+  # META_ARCHITECTURE: "AttentionNet"
+  META_ARCHITECTURE: "MoCo"
   SCALE: 20.0
   HID_DIM: 0
   BACKBONE:
@@ -31,8 +31,8 @@ MODEL:
 DATASETS:
   NAME: "CUB"
   IMAGE_SIZE: 224
-  WAYS: 2 #16
-  SHOTS: 2 #2
+  WAYS: 1 #16
+  SHOTS: 8 #2
   SEMANTIC: 'original'
   SEMANTIC_TYPE: 'GBU'
 
