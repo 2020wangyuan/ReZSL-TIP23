@@ -20,13 +20,16 @@ from REZSL.utils.comm import *
 
 from REZSL.utils import ReDirectSTD, set_seed
 
+from moco.util import Sampler as Cl_sampler
+
 #from apex import amp
 
 def train_model(cfg, local_rank, distributed):
     device = cfg.MODEL.DEVICE
-    model = build_zsl_pipeline(cfg)
-
     tr_dataloader, tu_loader, ts_loader, res = build_dataloader(cfg, is_distributed=distributed)
+    model = build_zsl_pipeline(cfg)
+    cl_sampler =Cl_sampler(res['train_att_binary_unique'],res['train_att_binary'],1)
+
 
     optimizer = make_optimizer(cfg, model)
     scheduler = make_lr_scheduler(cfg, optimizer, len(tr_dataloader))
@@ -84,7 +87,8 @@ def train_model(cfg, local_rank, distributed):
         device,
         max_epoch,
         model_file_path,
-        cfg
+        cfg,
+        cl_sampler
     )
 
     return model

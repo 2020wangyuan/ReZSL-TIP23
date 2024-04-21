@@ -5,6 +5,7 @@
 
 import torch
 import torch.nn as nn
+from .util import Sampler as my_sampler
 
 
 class MoCo(nn.Module):
@@ -13,7 +14,10 @@ class MoCo(nn.Module):
     https://arxiv.org/abs/1911.05722
     """
 
-    def __init__(self, base_encoder, dim=128, K=65536, m=0.999, T=0.07, mlp=False):
+    def __init__(self, build_AttentionNet, cfg,
+                 dim=128, K=65536, m=0.999,
+                 T=0.07,
+                 mlp=False, contrastive_learning=True):
         """
         dim: feature dimension (default: 128)
         K: queue size; number of negative keys (default: 65536)
@@ -28,8 +32,8 @@ class MoCo(nn.Module):
 
         # create the encoders
         # num_classes is the output fc dimension
-        self.encoder_q = base_encoder(num_classes=dim)
-        self.encoder_k = base_encoder(num_classes=dim)
+        self.encoder_q = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
+        self.encoder_k = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
 
         if mlp:  # hack: brute-force replacement
             dim_mlp = self.encoder_q.fc.weight.shape[1]
@@ -51,9 +55,8 @@ class MoCo(nn.Module):
         self.queue = nn.functional.normalize(self.queue, dim=0)
         self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
 
-        self.register_buffer("label_queue", torch.zeros(dim, K))
+        self.register_buffer("label_queue", torch.zeros(K))
         self.register_buffer("label_queue_prt", torch.zeros(1, dtype=torch.long))
-
 
     @torch.no_grad()
     def _momentum_update_key_encoder(self):
@@ -131,7 +134,7 @@ class MoCo(nn.Module):
 
         return x_gather[idx_this]
 
-    def forward(self, im_q, im_k):
+    def forward1(self, im_q, im_k):
         """
         Input:
             im_q: a batch of query images
@@ -142,6 +145,62 @@ class MoCo(nn.Module):
 
         # compute query features
         q = self.encoder_q(im_q)  # queries: NxC
+        q = nn.functional.normalize(q, dim=1)
+
+        # compute key features
+        with torch.no_grad():  # no gradient to keys
+            self._momentum_update_key_encoder()  # update the key encoder
+
+            # shuffle for making use of BN
+            im_k, idx_unshuffle = self._batch_shuffle_ddp(im_k)
+
+            k = self.encoder_k(im_k)  # keys: NxC
+            k = nn.functional.normalize(k, dim=1)
+
+            # undo shuffle
+            k = self._batch_unshuffle_ddp(k, idx_unshuffle)
+
+        # compute logits
+        # Einstein sum is more intuitive
+        # positive logits: Nx1
+        l_pos = torch.einsum("nc,nc->n", [q, k]).unsqueeze(-1)
+        # negative logits: NxK
+        l_neg = torch.einsum("nc,ck->nk", [q, self.queue.clone().detach()])
+
+        # logits: Nx(1+K)
+        logits = torch.cat([l_pos, l_neg], dim=1)
+
+        # apply temperature
+        logits /= self.T
+
+        # labels: positive key indicators
+        labels = torch.zeros(logits.shape[0], dtype=torch.long).cuda()
+
+        # dequeue and enqueue
+        self._dequeue_and_enqueue(k)
+
+        return logits, labels
+
+    def forward(self, x, target_img, support_att, masked_one_hot, selected_layer, q_labels=None, sampler=None):
+        """
+        在forward函数的基础上加入自己的代理任务
+        Input:
+            im_q即x: a batch of query images
+            q_att_binary: im_q对应的二进制属性
+            q_labels: im_q对应的标签
+        Output:
+            logits, targets
+        """
+        loss = []
+        cl_times = 0
+        if sampler is not None:
+            neg_samples_list, pos_sample_list = sampler.samples(q_labels, self.label_queue,
+                                                                     self.label_queue_prt)
+
+        # compute query features
+        q = self.encoder_q(x=x, target_img=target_img,
+                           support_att=support_att, masked_one_hot=masked_one_hot,
+                           selected_layer=selected_layer, )  # queries: NxC
         q = nn.functional.normalize(q, dim=1)
 
         # compute key features

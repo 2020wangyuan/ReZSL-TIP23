@@ -290,7 +290,6 @@ class AttentionNet(nn.Module):
             self.V_att_final_branch = nn.Parameter(nn.init.normal_(torch.empty(self.attritube_num, self.hid_dim)),
                                                    requires_grad=True)  # S, H
 
-
     # x is masked image.
     def forward(self, x, label_att=None, label=None, support_att=None, getAttention=False):
         if self.backbone_type == "resnet":
@@ -444,12 +443,19 @@ class AttentionNet(nn.Module):
                 p.requires_grad = False
 
 
-# 加入mae的attentinoNet1
+
 class AttentionNet1(nn.Module):
+    """
+    加入mae的attentionNet1
+    """
     def __init__(self, backbone, backbone_type, ft_flag, img_size, hid_dim, c, w, h,
                  attritube_num, cls_num, ucls_num, attr_group, w2v,
-                 scale=20.0, device=None):
+                 scale=20.0, device=None, Contrastive_Learning=False):
         super(AttentionNet1, self).__init__()
+
+        self.Contrastive_Learning = Contrastive_Learning
+        if Contrastive_Learning == True:
+            self.CLproject = nn.Linear(attritube_num, 128)
 
         # self.prototype_shape = prototype_shape
         self.device = device
@@ -525,9 +531,9 @@ class AttentionNet1(nn.Module):
                     MaskedAutoencoderViT(img_size=14, patch_size=1, embed_dim=768).to(device),
                     ]
 
-
-    #x is masked image
-    def forward(self, x,target_img=None,selected_layer=0, label_att=None, label=None, support_att=None, getAttention=False, masked_one_hot=None):
+    # x is masked image
+    def forward(self, x, target_img=None, selected_layer=0, label_att=None, label=None, support_att=None,
+                getAttention=False, masked_one_hot=None):
         if self.backbone_type == "resnet":
             feat = self.conv_features(x)  # B， 2048， 14， 14
             if getAttention:
@@ -552,9 +558,15 @@ class AttentionNet1(nn.Module):
                     patch_feat = patch_feat.permute(0, 2, 1)
                     cls_and_x = torch.cat((global_feat, patch_feat), dim=1)
                     feature_to_be_recon = output_hidden_states[selected_layer]
-                    reconstruct_x = self.mae[int(selected_layer / 3)].forward_decoder(feature_to_be_recon, masked_one_hot)
-                    reconstruct_loss = self.mae[int(selected_layer / 3)].forward_loss(target_img, reconstruct_x, masked_one_hot)
-                    return v2s, reconstruct_x, reconstruct_loss
+                    reconstruct_x = self.mae[int(selected_layer / 3)].forward_decoder(feature_to_be_recon,
+                                                                                      masked_one_hot)
+                    reconstruct_loss = self.mae[int(selected_layer / 3)].forward_loss(target_img, reconstruct_x,
+                                                                                      masked_one_hot)
+                    if self.Contrastive_Learning == True:
+                        CLfeature = self.CLproject(v2s)
+                        return v2s, reconstruct_x, reconstruct_loss, CLfeature
+                    else:
+                        return v2s, reconstruct_x, reconstruct_loss
                 else:
                     return v2s
 

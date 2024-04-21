@@ -76,7 +76,7 @@ def build_dataloader(cfg, is_distributed=False):
     else:
         print('unrecognized SEMANTIC TYPE')
 
-    att_binary = matcontent['binary_att']
+    att_binary = matcontent['binary_att'].T
 
     train_img = new_img_files[trainvalloc]
     train_label = label[trainvalloc].astype(int)
@@ -132,7 +132,8 @@ def build_dataloader(cfg, is_distributed=False):
         "train_att_binary":train_att_binary,
         "att_unseen_binary":att_unseen_binary,
         "train_test_att_bin":train_test_att_bin,
-        'train_att_binary_unique':train_att_binary_unique
+        'train_att_binary_unique':train_att_binary_unique,
+
 
     }
 

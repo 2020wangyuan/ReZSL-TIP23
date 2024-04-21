@@ -28,7 +28,8 @@ def do_train(
         device,
         max_epoch,
         model_file_path,
-        cfg
+        cfg,
+        cl_sampler=None
 ):
     model.to(device)
     best_performance = [-0.1, -0.1, -0.1, -0.1, -0.1]  # ZSL, S, U, H, AUSUC
@@ -68,7 +69,7 @@ def do_train(
             selected_layer = random.randint(0, 11)
 
             batch_img = batch_img.to(device)
-            batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.1)
+            batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.7)
             batch_att = batch_att.to(device)
             batch_label = batch_label.to(device)
 
@@ -83,14 +84,20 @@ def do_train(
                 d1 = index // att_dim
                 d2 = index % att_dim
                 print('index: (%d, %d), max weight: %.4f, corresponding offset: %.4f, max offset: %.4f' % (
-                d1, d2, ReZSL.running_weights_Matrix[d1][d2], ReZSL.running_offset_Matrix[d1][d2],
-                torch.max(ReZSL.running_offset_Matrix)))
+                    d1, d2, ReZSL.running_weights_Matrix[d1][d2], ReZSL.running_offset_Matrix[d1][d2],
+                    torch.max(ReZSL.running_offset_Matrix)))
 
-            if model_type == "BasicNet" or model_type == "AttentionNet":
+            if model_type == "BasicNet" or model_type == "AttentionNet" or "MoCo":
                 # v2s = model(x=batch_img, support_att=support_att_seen)
-                v2s, reconstruct_x, reconstruct_loss = model(x=batch_img, target_img=resized_image,
+                if model_type == 'AttentionNet':
+                    v2s, reconstruct_x, reconstruct_loss = model(x=batch_img, target_img=resized_image,
+                                                                 support_att=support_att_seen, masked_one_hot=mask_one_hot,
+                                                                 selected_layer=selected_layer)
+                else:
+                    v2s, reconstruct_x, reconstruct_loss = model(x=batch_img, target_img=resized_image,
                                                              support_att=support_att_seen, masked_one_hot=mask_one_hot,
-                                                             selected_layer=selected_layer, )
+                                                             selected_layer=selected_layer, sampler=cl_sampler,
+                                                             q_labels=batch_label)
 
                 if use_REZSL:
                     n = v2s.shape[0]
@@ -170,7 +177,8 @@ def do_train(
             reg_loss_epoch_mean = sum(reg_loss_epoch) / len(reg_loss_epoch)
             reconstruct_loss_epoch_mean = sum(reconstruct_loss_epoch) / len(reconstruct_loss_epoch)
             log_info = 'epoch: %d |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss_epoch: %.4f, lr: %.10f' % \
-                       (epoch + 1, loss_epoch_mean, cls_loss_epoch_mean, reg_loss_epoch_mean, reconstruct_loss_epoch_mean,
+                       (epoch + 1, loss_epoch_mean, cls_loss_epoch_mean, reg_loss_epoch_mean,
+                        reconstruct_loss_epoch_mean,
                         optimizer.param_groups[0]["lr"])
             print(log_info)
         mask = torch.gt(ReZSL.mean_value, 0.0)
@@ -194,7 +202,7 @@ def do_train(
 
         if is_main_process():
             print('zsl: %.4f, gzsl: seen=%.4f, unseen=%.4f, h=%.4f, AUSUC=%.4f, best_gamma=%.4f' % (
-            acc_zs, acc_seen, acc_novel, H, AUSUC, best_gamma))
+                acc_zs, acc_seen, acc_novel, H, AUSUC, best_gamma))
 
             if acc_zs > best_performance[0]:
                 best_performance[0] = acc_zs
