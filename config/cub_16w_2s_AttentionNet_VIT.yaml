@@ -31,8 +31,8 @@ MODEL:
 DATASETS:
   NAME: "CUB"
   IMAGE_SIZE: 224
-  WAYS: 1 #16
-  SHOTS: 8 #2
+  WAYS: 16 #16
+  SHOTS: 2 #2
   SEMANTIC: 'original'
   SEMANTIC_TYPE: 'GBU'
 
@@ -46,7 +46,7 @@ SOLVER:
   WEIGHT_DECAY: 1e-5
   MOMENTUM: 0.9
   GAMMA: 0.5
-  STEPS: 5
+  STEPS: 10
   DATA_AUG: "resize_random_crop"
 
 
