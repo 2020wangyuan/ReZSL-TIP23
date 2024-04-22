@@ -443,11 +443,11 @@ class AttentionNet(nn.Module):
                 p.requires_grad = False
 
 
-
 class AttentionNet1(nn.Module):
     """
     加入mae的attentionNet1
     """
+
     def __init__(self, backbone, backbone_type, ft_flag, img_size, hid_dim, c, w, h,
                  attritube_num, cls_num, ucls_num, attr_group, w2v,
                  scale=20.0, device=None, Contrastive_Learning=False):
@@ -455,7 +455,9 @@ class AttentionNet1(nn.Module):
 
         self.Contrastive_Learning = Contrastive_Learning
         if Contrastive_Learning == True:
-            self.CLproject = nn.Linear(attritube_num+1, 128)
+            self.CLproject = nn.Sequential(nn.Linear(attritube_num, 512), nn.ReLU(),
+                                           nn.Linear(512, 1024), nn.ReLU(),
+                                           nn.Linear(1024, 128), nn.ReLU())
 
         # self.prototype_shape = prototype_shape
         self.device = device
@@ -533,7 +535,7 @@ class AttentionNet1(nn.Module):
 
     # x is masked image
     def forward(self, x, target_img=None, selected_layer=0, label_att=None, label=None, support_att=None,
-                getAttention=False, masked_one_hot=None,sampled_atts = None):
+                getAttention=False, masked_one_hot=None, sampled_atts=None):
         if self.backbone_type == "resnet":
             feat = self.conv_features(x)  # B， 2048， 14， 14
             if getAttention:
@@ -563,8 +565,9 @@ class AttentionNet1(nn.Module):
                     reconstruct_loss = self.mae[int(selected_layer / 3)].forward_loss(target_img, reconstruct_x,
                                                                                       masked_one_hot)
                     if self.Contrastive_Learning == True:
-                        sampled_atts = torch.tensor(sampled_atts).to('cuda').unsqueeze(0).t()
-                        CLfeature = self.CLproject( torch.cat((sampled_atts,v2s),dim = 1) )
+                        sampled_atts = torch.tensor(sampled_atts).to('cuda').unsqueeze(0).t() / 31200
+                        result = v2s + sampled_atts.view(-1, 1)
+                        CLfeature = self.CLproject(result)
                         return v2s, reconstruct_x, reconstruct_loss, CLfeature
                     else:
                         return v2s, reconstruct_x, reconstruct_loss

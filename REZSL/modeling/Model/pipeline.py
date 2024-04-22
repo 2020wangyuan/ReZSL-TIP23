@@ -9,7 +9,7 @@ from .utils import get_attributes_info, get_attr_group
 
 from os.path import join
 import pickle
-from moco.builder import MoCo
+from contrastive_learning.builder import MoCo
 
 
 def build_BasicNet(cfg):

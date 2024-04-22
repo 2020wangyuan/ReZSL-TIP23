@@ -20,7 +20,7 @@ from REZSL.utils.comm import *
 
 from REZSL.utils import ReDirectSTD, set_seed
 
-from moco.util import Sampler as Cl_sampler
+from contrastive_learning.util import Sampler as Cl_sampler
 
 #from apex import amp
 

@@ -28,7 +28,7 @@ class Sampler:
         index = torch.multinomial(prob, 1, replacement=True)
         return index
 
-    def sample_positive_and_negative_class(self, target_class, ):
+    def sample_positive_and_negative_class(self, target_class ):
         """
         通过概率采样出正负类别,目标类别不能成为正负类别,不能成为负类别
         返回多个负类别的下标，和正类别的下标
@@ -58,10 +58,12 @@ class Sampler:
         返回字典中被选作样本的下标
         """
         neg_classes, pos_class = self.sample_positive_and_negative_class(target_class)
-        neg_samples = [i for i in range(0, label_ptr) if label_queue[i] in neg_classes]
-        pos_sample_candidates = [label_queue[i] for i in range(0, label_ptr) if label_queue[i] == pos_class]
+        neg_samples = torch.nonzero(torch.eq(neg_classes, label_queue))[:, 1]
+        # neg_samples = [i for i in range(0, label_ptr) if label_queue[i] in neg_classes]
+        pos_sample_candidates = torch.nonzero(torch.eq(pos_class, label_queue))[:, 1]
         if len(pos_sample_candidates) != 0:
-            pos_sample = random.sample(pos_sample_candidates, 1)
+            random_indices = torch.randperm(pos_sample_candidates.size(0))[:1]
+            pos_sample = pos_sample_candidates[random_indices]
         else:
             pos_sample = []
         return neg_samples, pos_sample
@@ -122,6 +124,7 @@ def get_positive_and_negative_class_Wrt_atts(atts_binary):
     """
     return torch.transpose(atts_binary, 0, 1)
 
+
 def pad_tensor_list_to_uniform_length(tensor_list):
     """
     将张量列表中的张量长度调整为统一长度。
@@ -142,9 +145,6 @@ def pad_tensor_list_to_uniform_length(tensor_list):
         tensor_list[i] = torch.nn.functional.pad(tensor, (0, padding_length), mode='constant', value=0)
 
     return torch.stack(tensor_list, dim=0)
-
-
-
 
 
 if __name__ == "__main__":
