@@ -455,9 +455,12 @@ class AttentionNet1(nn.Module):
 
         self.Contrastive_Learning = Contrastive_Learning
         if Contrastive_Learning == True:
+            """
             self.CLproject = nn.Sequential(nn.Linear(attritube_num, 512), nn.ReLU(),
                                            nn.Linear(512, 1024), nn.ReLU(),
                                            nn.Linear(1024, 128), nn.ReLU())
+            """
+            self.CLproject = nn.Sequential(nn.Linear(c, 128), nn.ReLU())
 
         # self.prototype_shape = prototype_shape
         self.device = device
@@ -526,16 +529,19 @@ class AttentionNet1(nn.Module):
                                                    requires_grad=True)  # S, H
 
         # 768 for base ViT , 1024 for large ViT
-        self.mae = [MaskedAutoencoderViT(img_size=224, patch_size=16, embed_dim=768).to(device),
-                    MaskedAutoencoderViT(img_size=112, patch_size=8, embed_dim=768).to(device),
-                    MaskedAutoencoderViT(img_size=56, patch_size=4, embed_dim=768).to(device),
-                    MaskedAutoencoderViT(img_size=28, patch_size=2, embed_dim=768).to(device),
-                    MaskedAutoencoderViT(img_size=14, patch_size=1, embed_dim=768).to(device),
-                    ]
+        self.mae = [  # MaskedAutoencoderViT(img_size=224, patch_size=16, embed_dim=768).to(device),
+            MaskedAutoencoderViT(img_size=112, patch_size=8, embed_dim=768).to(device),
+            MaskedAutoencoderViT(img_size=56, patch_size=4, embed_dim=768).to(device),
+            MaskedAutoencoderViT(img_size=28, patch_size=2, embed_dim=768).to(device),
+            MaskedAutoencoderViT(img_size=14, patch_size=1, embed_dim=768).to(device),
+        ]
+
+        self.patch_features = None
 
     # x is masked image
     def forward(self, x, target_img=None, selected_layer=0, label_att=None, label=None, support_att=None,
                 getAttention=False, masked_one_hot=None, sampled_atts=None):
+        self.patch_features = None
         if self.backbone_type == "resnet":
             feat = self.conv_features(x)  # B， 2048， 14， 14
             if getAttention:
@@ -546,6 +552,7 @@ class AttentionNet1(nn.Module):
                 return v2s
         else:
             global_feat, patch_feat, output_hidden_states = self.conv_features(x)  # B, 2048, 14, 14
+            self.patch_features = patch_feat
             patch_feat = patch_feat.permute(0, 2, 1)
             B, C = global_feat.shape
             if getAttention:
@@ -565,14 +572,22 @@ class AttentionNet1(nn.Module):
                     reconstruct_loss = self.mae[int(selected_layer / 3)].forward_loss(target_img, reconstruct_x,
                                                                                       masked_one_hot)
                     if self.Contrastive_Learning == True:
-                        sampled_atts = torch.tensor(sampled_atts).to('cuda').unsqueeze(0).t() / 31200
-                        result = v2s + sampled_atts.view(-1, 1)
+                        # sampled_atts = torch.tensor(sampled_atts).to('cuda').unsqueeze(0).t() / 31200
+                        sampled_atts = torch.tensor(sampled_atts).to('cuda').unsqueeze(0).t() * 0
+                        result = global_feat.squeeze(1) + sampled_atts.view(-1, 1)
                         CLfeature = self.CLproject(result)
                         return v2s, reconstruct_x, reconstruct_loss, CLfeature
                     else:
                         return v2s, reconstruct_x, reconstruct_loss
                 else:
-                    return v2s
+                    if self.Contrastive_Learning == True and sampled_atts is not None:
+                        # sampled_atts = torch.tensor(sampled_atts).to('cuda').unsqueeze(0).t() / 31200
+                        sampled_atts = torch.tensor(sampled_atts).to('cuda').unsqueeze(0).t() * 0
+                        result = global_feat.squeeze(1) + sampled_atts.view(-1, 1)
+                        CLfeature = self.CLproject(result)
+                        return v2s, CLfeature
+                    else:
+                        return v2s
 
     def vit_attention_module(self, global_feat, patch_feat, s, getAttention=False):
         """

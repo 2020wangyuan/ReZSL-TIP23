@@ -18,14 +18,17 @@ class Sampler:
         self.neg_class_number = neg_class_number
         self.target_att = []
 
-    def sample_target_att(self, image_att_binary):
+    def sample_target_att(self, target_class):
         """
         通过概率采样出作为目标属性的属性
         """
+        image_att_binary = self.atts_binary[target_class]
         prob = self.target_att_prob * image_att_binary
         prob_sum = torch.sum(prob, dim=0)
         prob /= prob_sum
         index = torch.multinomial(prob, 1, replacement=True)
+        while index == 145:
+            index = torch.multinomial(prob, 1, replacement=True)
         return index
 
     def sample_positive_and_negative_class(self, target_class ):
@@ -33,10 +36,7 @@ class Sampler:
         通过概率采样出正负类别,目标类别不能成为正负类别,不能成为负类别
         返回多个负类别的下标，和正类别的下标
         """
-        image_att_binary = self.atts_binary[target_class]
-        target_att = self.sample_target_att(image_att_binary)
-        while target_att == 145:
-            target_att = self.sample_target_att(image_att_binary)
+        target_att = self.sample_target_att(target_class)
         self.target_att.append(target_att)
 
         sim = self.classed_sim[target_class]
@@ -82,6 +82,23 @@ class Sampler:
             neg_samples_list.append(neg_samples)
             pos_sample_list.append(pos_sample)
         return neg_samples_list, pos_sample_list
+
+
+
+    def sample_from_batch(self,q_labels,):
+        """
+        从同一个batch里筛选出正负样本
+        """
+        target_atts = [ ]
+        neg_samples_index_list = []
+        pos_sample_index_list = []
+        for i in range(len(q_labels)):
+            pos_sample_candidates
+            tar_att = self.sample_target_att(q_labels[i])
+            positive_and_negative_class_Wrt_atts = self.positive_and_negative_class_Wrt_atts[tar_att]
+            positive_and_negative_class_Wrt_atts[q_labels[i]] = 0
+            pos_sample_candidates = torch.nonzero(torch.eq(positive_and_negative_class_Wrt_atts, torch.ones(1)))[:, 1]
+
 
 
 # 根据二进制属性，计算每个类别之间的相似性
