@@ -69,6 +69,7 @@ def do_train(
         for iteration, (batch_img, batch_att, batch_label) in enumerate(tr_dataloader):
 
             CL_loss = None
+            logit = None
 
             # 选择用于重构的隐藏层的输出feature
             selected_layer = random.randint(0, 11)
@@ -126,7 +127,7 @@ def do_train(
 
                 Lreg = Reg_loss(v2s, batch_att, weights)
                 Lcls = CLS_loss(score, batch_label)
-                if logit is not None:
+                if  model_type != 'AttentionNet' and logit is not None :
                     CL_loss = contrastive_loss(logit, labels)
 
                 loss = lamd[0] * Lcls + lamd[1] * Lreg + 1 * reconstruct_loss
@@ -202,8 +203,10 @@ def do_train(
             reg_loss_epoch_mean = sum(reg_loss_epoch) / len(reg_loss_epoch)
             reconstruct_loss_epoch_mean = sum(reconstruct_loss_epoch) / len(reconstruct_loss_epoch)
 
-            contrastive_learning_loss_epoch_mean = sum(contrastive_learning_loss_epoch) / len(
-                contrastive_learning_loss_epoch)
+            if len(contrastive_learning_loss_epoch) == 0:
+                contrastive_learning_loss_epoch_mean = 0
+            else:
+                contrastive_learning_loss_epoch_mean = sum(contrastive_learning_loss_epoch) / len(contrastive_learning_loss_epoch)
 
             log_info = 'epoch: %d |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss_epoch: %.4f, contrastive_learning_loss_epoch: %.4f, lr: %.10f' % \
                        (epoch + 1, loss_epoch_mean, cls_loss_epoch_mean, reg_loss_epoch_mean,

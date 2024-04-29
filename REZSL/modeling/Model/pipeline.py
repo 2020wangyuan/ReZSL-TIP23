@@ -9,7 +9,7 @@ from .utils import get_attributes_info, get_attr_group
 
 from os.path import join
 import pickle
-from contrastive_learning.builder import MoCo, my_SimCLR
+from contrastive_learning.builder import MoCo, my_SimCLR,my_SimCLR2
 
 
 def build_BasicNet(cfg):
@@ -152,13 +152,16 @@ def build_MoCo(cfg):
 def build_SimCLR(cfg):
     return my_SimCLR(build_AttentionNet, cfg)
 
+def build_SimCLR2(cfg):
+    return my_SimCLR2(build_AttentionNet, cfg)
 
 _ZSL_META_ARCHITECTURES = {
     "BasicNet": build_BasicNet,
     "AttentionNet": build_AttentionNet,
     "GEMNet": build_GEMNet,
     "MoCo": build_MoCo,
-    "SimCLR": build_SimCLR
+    "SimCLR": build_SimCLR,
+    "SimCLR2": build_SimCLR2
 }
 
 

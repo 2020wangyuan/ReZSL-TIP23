@@ -566,7 +566,8 @@ class AttentionNet1(nn.Module):
                     global_feat = global_feat.unsqueeze(1)
                     patch_feat = patch_feat.permute(0, 2, 1)
                     cls_and_x = torch.cat((global_feat, patch_feat), dim=1)
-                    feature_to_be_recon = output_hidden_states[selected_layer]
+                    #feature_to_be_recon = output_hidden_states[selected_layer]
+                    feature_to_be_recon = output_hidden_states[int(selected_layer / 3)]
                     reconstruct_x = self.mae[int(selected_layer / 3)].forward_decoder(feature_to_be_recon,
                                                                                       masked_one_hot)
                     reconstruct_loss = self.mae[int(selected_layer / 3)].forward_loss(target_img, reconstruct_x,
