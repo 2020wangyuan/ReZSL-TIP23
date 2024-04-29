@@ -31,7 +31,7 @@ class Sampler:
             index = torch.multinomial(prob, 1, replacement=True)
         return index
 
-    def sample_positive_and_negative_class(self, target_class ):
+    def sample_positive_and_negative_class(self, target_class):
         """
         通过概率采样出正负类别,目标类别不能成为正负类别,不能成为负类别
         返回多个负类别的下标，和正类别的下标
@@ -83,22 +83,35 @@ class Sampler:
             pos_sample_list.append(pos_sample)
         return neg_samples_list, pos_sample_list
 
-
-
-    def sample_from_batch(self,q_labels,):
+    def sample_from_batch(self, q_labels, ):
         """
         从同一个batch里筛选出正负样本
+        返回目标属性，正样本下标，负样本下标
         """
-        target_atts = [ ]
-        neg_samples_index_list = []
-        pos_sample_index_list = []
-        for i in range(len(q_labels)):
-            pos_sample_candidates
-            tar_att = self.sample_target_att(q_labels[i])
-            positive_and_negative_class_Wrt_atts = self.positive_and_negative_class_Wrt_atts[tar_att]
-            positive_and_negative_class_Wrt_atts[q_labels[i]] = 0
-            pos_sample_candidates = torch.nonzero(torch.eq(positive_and_negative_class_Wrt_atts, torch.ones(1)))[:, 1]
+        target_atts = []
+        positive_samples_index = []
+        negative_samples_index = []
 
+        for i in range(0, len(q_labels)):
+            positive_candidate_samples_index = []
+            negative_candidate_samples_index = []
+            target_att = None
+            while len(positive_candidate_samples_index) == 0 or len(negative_candidate_samples_index) == 0:
+                target_att = self.sample_target_att(q_labels[i])
+                positive_candidate_samples_index = [j for j in range(len(q_labels)) if
+                                                    q_labels[j] != q_labels[i] and self.atts_binary[q_labels[j]][target_att] == 1]
+                negative_candidate_samples_index = [j for j in range(len(q_labels)) if
+                                                    self.atts_binary[q_labels[j]][target_att] == 0]
+            target_atts.append(target_att)
+            tem = [int(q_labels[k]) for k in positive_candidate_samples_index]
+            positive_candidate_samples_pro = self.class_dis[q_labels[i]]
+            positive_candidate_samples_pro = positive_candidate_samples_pro[tem]
+            positive_sample_index = torch.multinomial(positive_candidate_samples_pro, 1, replacement=True)
+            positive_samples_index.append([positive_candidate_samples_index[positive_sample_index]])
+            negative_samples_index.append(negative_candidate_samples_index)
+
+        self.target_att = target_atts
+        return target_atts, positive_samples_index, negative_samples_index
 
 
 # 根据二进制属性，计算每个类别之间的相似性
@@ -163,16 +176,40 @@ def pad_tensor_list_to_uniform_length(tensor_list):
 
     return torch.stack(tensor_list, dim=0)
 
+def pad_tensor_list_to_uniform_length2(tensor_list):
+    """
+    将张量列表中的张量长度调整为统一长度。
+
+    Args:
+        tensor_list (list): 包含张量的列表。
+
+    Returns:
+        list: 调整后的张量列表，所有张量的长度相同。
+    """
+    # 找到列表中最长的张量的长度
+    max_length = max(len(tensor) for tensor in tensor_list)
+
+    # 将列表中的所有张量长度调整为最长的张量长度
+    for i, tensor in enumerate(tensor_list):
+        padding_length = max_length - len(tensor)
+        # 使用 torch.pad() 函数进行填充
+        tensor_list[i] = torch.nn.functional.pad(tensor, (0, 0, 0, padding_length), mode='constant', value=0)
+
+    return tensor_list
+
 
 if __name__ == "__main__":
     import torch
 
-    # 定义一个二维张量
+    # 创建一个示例张量
     tensor = torch.tensor([[1, 2, 3],
                            [4, 5, 6],
                            [7, 8, 9]])
 
-    # 沿着行的方向对张量的每一行进行求和
-    sum_of_rows = torch.sum(tensor, dim=0)
+    # 定义条件，例如找出大于5的值
+    condition = tensor > 5
 
-    print(sum_of_rows)
+    # 使用布尔索引获取满足条件的值
+    result = tensor[condition]
+
+    print("满足条件的值：", result)

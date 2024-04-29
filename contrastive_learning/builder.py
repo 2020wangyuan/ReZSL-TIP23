@@ -6,7 +6,7 @@
 import torch
 import torch.nn as nn
 from .util import Sampler as my_sampler
-from .util import pad_tensor_list_to_uniform_length
+from .util import pad_tensor_list_to_uniform_length,pad_tensor_list_to_uniform_length2
 
 
 class MoCo(nn.Module):
@@ -17,7 +17,7 @@ class MoCo(nn.Module):
 
     def __init__(self, build_AttentionNet, cfg,
                  dim=128, K=2048, m=0.70,
-                 T=0.07,
+                 T=0.09,
                  mlp=False, contrastive_learning=True):
         """
         dim: feature dimension (default: 128)
@@ -35,7 +35,6 @@ class MoCo(nn.Module):
         # num_classes is the output fc dimension
         self.encoder_q = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
         self.encoder_k = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
-
 
         self.cosine_dis = self.encoder_q.cosine_dis
 
@@ -141,9 +140,6 @@ class MoCo(nn.Module):
 
         return x_gather[idx_this]
 
-
-
-
     def forward(self, x, support_att, target_img=None, masked_one_hot=None, selected_layer=0, q_labels=None,
                 sampler=None):
         """
@@ -196,7 +192,6 @@ class MoCo(nn.Module):
                     logits = torch.einsum("c,ck->k", q[legal_samples_list_index[i]], pos_cat_neg_samples[i])
                     logits_all.append(logits)
 
-
                 logits_all = pad_tensor_list_to_uniform_length(logits_all)
 
                 logits_all /= self.T
@@ -217,89 +212,10 @@ class MoCo(nn.Module):
                 # undo shuffle
                 k = self._batch_unshuffle_ddp(k, idx_unshuffle)
 
-
-
-
-
             # dequeue and enqueue
 
             self._dequeue_and_enqueue(k, q_labels)
-            return v2s, reconstruct_x, reconstruct_loss, logits_all,labels
-
-        else:
-            v2s = self.encoder_q(x=x,
-                                 support_att=support_att,
-
-                                 )  # queries: NxC
-
-            return v2s
-
-
-class MoCoV3(nn.Module):
-    """
-    Build a MoCo model with: a query encoder, a key encoder, and a queue
-    https://arxiv.org/abs/1911.05722
-    """
-
-    def __init__(self, build_AttentionNet, cfg,
-                 dim=128,channel = 768,att_num = 312,
-                 T=0.07,
-                 contrastive_learning=True):
-        """
-        dim: feature dimension (default: 128)
-        K: queue size; number of negative keys (default: 65536)
-        m: contrastive_learning momentum of updating key encoder (default: 0.999)
-        T: softmax temperature (default: 0.07)
-        """
-        super(MoCoV3, self).__init__()
-
-        self.T = T
-        self.fea_channel = channel
-        self.att_prototype = nn.ModuleList([ nn.Sequential(nn.Linear(channel, 128),nn.ReLU()) for i in range(att_num)])
-
-
-
-        # create the encoders
-        # num_classes is the output fc dimension
-        self.encoder_q = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
-        self.cosine_dis = self.encoder_q.cosine_dis
-
-    def forward(self, x, support_att, target_img=None, masked_one_hot=None, selected_layer=0, q_labels=None,
-                sampler=None):
-        """
-        在forward函数的基础上加入自己的代理任务
-        Input:
-            im_q即x: a batch of query images
-            q_att_binary: im_q对应的二进制属性
-            q_labels: im_q对应的标签
-        Output:
-            logits, targets
-        """
-
-
-
-        pos_cat_neg_samples = None
-        valid_q = None
-        CLloss = None
-
-        # compute query features
-
-        if valid_q is not None:
-            # negative logits: NxK
-            logits_all = []
-            for i in range(len(valid_q)):
-                logits = torch.einsum("c,ck->k", valid_q[i], pos_cat_neg_samples[i])
-                logits_all.append(logits)
-            logits_all = pad_tensor_list_to_uniform_length(logits_all)
-
-            logits_all /= self.T
-
-            labels = torch.zeros(logits_all.shape[0], dtype=torch.long).cuda()
-            CLloss = nn.CrossEntropyLoss()(logits_all, labels)
-            # dequeue and enqueue
-
-            self._dequeue_and_enqueue(k, q_labels)
-            return v2s, reconstruct_x, reconstruct_loss, CLloss
+            return v2s, reconstruct_x, reconstruct_loss, logits_all, labels
 
         else:
             v2s = self.encoder_q(x=x,
@@ -324,3 +240,112 @@ def concat_all_gather(tensor):
 
     output = torch.cat(tensors_gather, dim=0)
     return output
+
+
+class my_SimCLR(nn.Module):
+    """
+    Build a MoCo model with: a query encoder, a key encoder, and a queue
+    https://arxiv.org/abs/1911.05722
+    """
+
+    def __init__(self, build_AttentionNet, cfg,
+                 T=0.12,
+                 contrastive_learning=True):
+        """
+        dim: feature dimension (default: 128)
+        K: queue size; number of negative keys (default: 65536)
+        m: contrastive_learning momentum of updating key encoder (default: 0.999)
+        T: softmax temperature (default: 0.07)
+        """
+        super(my_SimCLR, self).__init__()
+
+        self.T = T
+
+        # create the encoders
+        # num_classes is the output fc dimension
+        self.encoder_q = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
+
+
+        self.CLproject = []
+        for i in range(312):
+            layer = nn.Sequential(nn.Linear(312, 1024), nn.ReLU(),nn.Dropout(0.1),
+                                  nn.Linear(1024, 2048), nn.ReLU(),nn.Dropout(0.1),
+                                  nn.Linear(2048, 128), nn.ReLU(),
+                                  ).to('cuda')
+            for i in [0,3,6,]:
+                torch.nn.init.normal_(layer[i].weight, mean=0.0, std=0.01)
+                torch.nn.init.constant_(layer[i].bias, 0.0)  # 初始化偏置为常数，这里设为0
+            self.CLproject.append(layer)
+
+        """
+        self.CLproject = [nn.Sequential(nn.Linear(312, 128), nn.ReLU()).to('cuda') for i in range(312)]
+        for layer in self.CLproject:
+            torch.nn.init.normal_(layer[0].weight, mean=0.0, std=0.01)
+            torch.nn.init.constant_(layer[0].bias, 0.0)  # 初始化偏置为常数，这里设为0
+        """
+        self.cosine_dis = self.encoder_q.cosine_dis
+
+
+
+
+
+    def forward(self, x, support_att, target_img=None, masked_one_hot=None, selected_layer=0, q_labels=None,
+                sampler=None):
+        """
+        在forward函数的基础上加入自己的代理任务
+        Input:
+            im_q即x: a batch of query images
+            q_att_binary: im_q对应的二进制属性
+            q_labels: im_q对应的标签
+        Output:
+            logits, targets
+        """
+
+        pos_cat_neg_samples = None
+        logits_all = None
+        labels = None
+
+        # compute query features
+
+        if sampler is not None:
+
+            tar_atts, pos_sample_list, neg_samples_list = sampler.sample_from_batch(q_labels)
+            sample_index_list = [i + j for i, j in zip(pos_sample_list, neg_samples_list)]
+            v2s, reconstruct_x, reconstruct_loss, _ = self.encoder_q(x=x, target_img=target_img,
+                                                                     support_att=support_att,
+                                                                     masked_one_hot=masked_one_hot,
+                                                                     selected_layer=selected_layer,
+                                                                     sampled_atts=sampler.target_att)  # queries: NxC
+            # q = nn.functional.normalize(q, dim=1)
+
+            pos_cat_neg_samples = []
+            for l in sample_index_list:
+                cat_sample = v2s.detach().clone()[l]
+                pos_cat_neg_samples.append(cat_sample)
+
+            pos_cat_neg_samples = pad_tensor_list_to_uniform_length2(pos_cat_neg_samples)
+            pos_cat_neg_samples = [self.CLproject[tar_atts[i]](pos_cat_neg_samples[i].detach().clone()) for i in range(len(pos_cat_neg_samples))]
+
+            query = [self.CLproject[tar_atts[i]](v2s[i].detach().clone()) for i in range(len(tar_atts))]
+
+            logits_all = []
+            for i in range(len(pos_cat_neg_samples)):
+                logits = torch.einsum("c,kc->k", query[i], pos_cat_neg_samples[i])
+                logits_all.append(logits)
+
+            logits_all = torch.stack(logits_all, dim=0)
+
+            logits_all /= self.T
+
+            labels = torch.zeros(logits_all.shape[0], dtype=torch.long).cuda()
+
+
+            return v2s, reconstruct_x, reconstruct_loss, logits_all, labels
+
+        else:
+            v2s = self.encoder_q(x=x,
+                                 support_att=support_att,
+
+                                 )  # queries: NxC
+
+            return v2s

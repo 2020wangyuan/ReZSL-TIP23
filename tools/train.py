@@ -22,21 +22,21 @@ from REZSL.utils import ReDirectSTD, set_seed
 
 from contrastive_learning.util import Sampler as Cl_sampler
 
-#from apex import amp
+
+# from apex import amp
 
 def train_model(cfg, local_rank, distributed):
     device = cfg.MODEL.DEVICE
     tr_dataloader, tu_loader, ts_loader, res = build_dataloader(cfg, is_distributed=distributed)
     model = build_zsl_pipeline(cfg)
-    cl_sampler =Cl_sampler(res['train_att_binary_unique'],res['train_att_binary'],1)
-
+    cl_sampler = Cl_sampler(res['train_att_binary_unique'], res['train_att_binary'], 1)
 
     optimizer = make_optimizer(cfg, model)
     scheduler = make_lr_scheduler(cfg, optimizer, len(tr_dataloader))
 
     use_mixed_precision = cfg.DTYPE == "float16"
-    #amp_opt_level = 'O1' if use_mixed_precision else 'O0'
-    #model, optimizer = amp.initialize(model, optimizer, opt_level=amp_opt_level)
+    # amp_opt_level = 'O1' if use_mixed_precision else 'O0'
+    # model, optimizer = amp.initialize(model, optimizer, opt_level=amp_opt_level)
 
     model = torch.nn.DataParallel(model, device_ids=cfg.MODEL.GPUS).to(device)
 
@@ -95,7 +95,6 @@ def train_model(cfg, local_rank, distributed):
 
 
 def main():
-
     parser = argparse.ArgumentParser(description="PyTorch Zero-Shot Learning Training")
     parser.add_argument(
         "--config-file",
@@ -126,7 +125,6 @@ def main():
     cfg.merge_from_file(args.config_file)
     cfg.freeze()
 
-
     output_dir = cfg.OUTPUT_DIR
     log_file_name = cfg.LOG_FILE_NAME
 
@@ -145,12 +143,10 @@ def main():
     torch.backends.cudnn.benchmark = True
     model = train_model(cfg, args.local_rank, args.distributed)
 
-    
 
 if __name__ == '__main__':
     # torch.distributed.init_process_group('nccl', world_size = 1,rank = 0,init_method = 'file:/home/wangyuan/project/ReZSL/distributed/init_file')
     torch.distributed.init_process_group('nccl', world_size=1, rank=0,
                                          init_method='file:/mnt/mydisk1/home/wangyuan/project/ReZSL/distributedinit_file')
-
 
     main()
