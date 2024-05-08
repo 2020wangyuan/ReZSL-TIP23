@@ -3,9 +3,9 @@ LOG_FILE_NAME: "AttentionNet(vit224,hid:0)_SGD(lr=5e-4)_NCE_Ablation_Global+Atte
 MODEL_FILE_NAME: "AttentionNet(vit224,hid:0)_SGD(lr=5e-4)_NCE_Ablation_Global+Attentive+ReMSE_seed=214.pth"
 SEED: 214
 MODEL:
-  META_ARCHITECTURE: "AttentionNet"
+  #META_ARCHITECTURE: "AttentionNet"
   #META_ARCHITECTURE: "MoCo"
-  #META_ARCHITECTURE: "SimCLR2"
+  META_ARCHITECTURE: "SimCLR2"
   SCALE: 20.0
   HID_DIM: 0
   BACKBONE:
@@ -32,7 +32,7 @@ MODEL:
 DATASETS:
   NAME: "CUB"
   IMAGE_SIZE: 224
-  WAYS: 32 #16
+  WAYS: 16 #16
   SHOTS: 2 #2
   SEMANTIC: 'original'
   SEMANTIC_TYPE: 'GBU'
@@ -43,11 +43,11 @@ DATALOADER:
 
 SOLVER:
   MAX_EPOCH: 3000
-  BASE_LR: 2e-3
+  BASE_LR: 4e-4
   WEIGHT_DECAY: 1e-5
   MOMENTUM: 0.9
-  GAMMA: 0.1
-  STEPS: 10
+  GAMMA: 0.9
+  STEPS: 3
   DATA_AUG: "resize_random_crop"
 
 

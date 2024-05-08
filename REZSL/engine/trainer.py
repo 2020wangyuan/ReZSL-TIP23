@@ -75,12 +75,12 @@ def do_train(
             selected_layer = random.randint(0, 11)
 
             batch_img = batch_img.to(device)
-            batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.5)
+            batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.1)
             batch_att = batch_att.to(device)
             batch_label = batch_label.to(device)
 
-            new_height = int(112 / 2 ** int(selected_layer / 3))
-            new_width = int(112 / 2 ** int(selected_layer / 3))
+            new_height = int(224 / 2 ** int(selected_layer / 3))
+            new_width = int(224 / 2 ** int(selected_layer / 3))
             resized_image = torch.nn.functional.interpolate(batch_img, size=(new_height, new_width), mode='bilinear',
                                                             align_corners=False)
 
