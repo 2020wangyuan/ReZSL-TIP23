@@ -73,16 +73,17 @@ def do_train(
 
             # 选择用于重构的隐藏层的输出feature
             selected_layer = random.randint(0, 11)
+            new_height = int(224 / 2 ** int(selected_layer / 3))
+            new_width = int(224 / 2 ** int(selected_layer / 3))
+            resized_image = torch.nn.functional.interpolate(batch_img, size=(new_height, new_width), mode='bilinear',
+                                                            align_corners=False)
 
             batch_img = batch_img.to(device)
             batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.1)
             batch_att = batch_att.to(device)
             batch_label = batch_label.to(device)
 
-            new_height = int(224 / 2 ** int(selected_layer / 3))
-            new_width = int(224 / 2 ** int(selected_layer / 3))
-            resized_image = torch.nn.functional.interpolate(batch_img, size=(new_height, new_width), mode='bilinear',
-                                                            align_corners=False)
+
 
             if iteration % 50 == 0:
                 index = torch.argmax(ReZSL.running_weights_Matrix)

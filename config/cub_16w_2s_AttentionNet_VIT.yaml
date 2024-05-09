@@ -15,7 +15,7 @@ MODEL:
   ATTENTION:
     CHANNEL: 512
     WEIGHT_SHARED: True
-    W2V_PATH: "/mnt/mydisk1/home/wangyuan/project/data/w2v"
+    W2V_PATH: "/home/wangyuan/project/data/w2v"
   LOSS:
     LAMBDA0: 1.0
     LAMBDA1: 1.0
