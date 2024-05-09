@@ -79,7 +79,12 @@ def do_train(
                                                             align_corners=False)
 
             batch_img = batch_img.to(device)
-            batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.1)
+
+            # mask图片和embedding
+            #batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.1)
+
+            # 只mask embedding
+            _, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.1)
             batch_att = batch_att.to(device)
             batch_label = batch_label.to(device)
 
