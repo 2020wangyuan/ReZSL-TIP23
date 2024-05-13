@@ -106,6 +106,15 @@ def do_train(
                                                                  support_att=support_att_seen,
                                                                  masked_one_hot=mask_one_hot,
                                                                  selected_layer=selected_layer)
+                elif model_type == 'SimCLR3':
+                    v2s, reconstruct_x, reconstruct_loss, logit, labels = model(x=batch_img, target_img=resized_image,
+                                                                                labels = batch_label,
+                                                                                support_att=support_att_seen,
+                                                                                masked_one_hot=mask_one_hot,
+                                                                                selected_layer=selected_layer,
+                                                                                sampler=cl_sampler,
+                                                                                q_labels=batch_label)
+
                 else:
                     v2s, reconstruct_x, reconstruct_loss, logit, labels = model(x=batch_img, target_img=resized_image,
                                                                                 support_att=support_att_seen,

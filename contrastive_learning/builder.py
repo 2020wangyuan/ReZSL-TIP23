@@ -519,10 +519,12 @@ class my_SimCLR3(nn.Module):
         self.attritube_num = self.encoder_q.attritube_num
         self.dim = self.encoder_q.feat_channel
 
-        # create the queue
-        self.register_buffer("queue", torch.randn(self.scls_num, self.attritube_num,self.dim))
-        self.queue = nn.functional.normalize(self.queue, dim=2)
 
+
+        params = torch.randn(self.scls_num, self.attritube_num,self.dim)
+        params = nn.functional.normalize(params, dim=2)
+        self.ema = params.to('cuda')
+        self.decay = 0.90
 
 
         self.cosine_dis = self.encoder_q.cosine_dis
@@ -545,7 +547,6 @@ class my_SimCLR3(nn.Module):
 
         pos_cat_neg_samples = None
         logits_all = None
-        labels = None
 
         # compute query features
 
@@ -558,7 +559,11 @@ class my_SimCLR3(nn.Module):
                                                                      masked_one_hot=masked_one_hot,
                                                                      selected_layer=selected_layer,
                                                                      sampled_atts=sampler.target_att)  # queries: NxC
-            # q = nn.functional.normalize(q, dim=1)
+
+            batch_part_feature = self.encoder_q.part_feature
+            self.emp_update(batch_part_feature, labels)
+
+
 
             pos_cat_neg_samples = []
             for l in sample_index_list:
@@ -589,3 +594,17 @@ class my_SimCLR3(nn.Module):
                                  )  # queries: NxC
 
             return v2s
+
+
+    def emp_update(self,batch_part_feature,batch_labels):
+        batch_labels = batch_labels.to('cuda')
+        batch_part_feature = batch_part_feature.clone().detach()
+        old = self.ema[94]
+        batch = self.ema[batch_labels]
+        new_batch = (1.0 - self.decay) * batch + self.decay * batch_part_feature
+        self.ema[batch_labels.tolist()] = new_batch
+        new = self.ema[94]
+
+        dif = new - old
+
+        pass
