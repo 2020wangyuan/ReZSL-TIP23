@@ -538,6 +538,8 @@ class AttentionNet1(nn.Module):
 
         self.patch_features = None
 
+        self.part_feature = None
+
     # x is masked image
     def forward(self, x, target_img=None, selected_layer=0, label_att=None, label=None, support_att=None,
                 getAttention=False, masked_one_hot=None, sampled_atts=None):
@@ -617,6 +619,10 @@ class AttentionNet1(nn.Module):
         feat_pool = F.avg_pool1d(feat, kernel_size=(N + 1))  # B, C
         feat_reshape_repeat = feat_pool.view(B, 1, -1).expand(B, self.attritube_num, C)  # B, S, C
         attented_feat_final = feat_reshape_repeat + self.ratio * attented_feat_o  # [B,S,C]
+
+        # use attented_feat_final as part feature
+        self.part_feature = None
+        self.part_feature = attented_feat_final
 
         # visual to semantic
         if self.hid_dim == 0:

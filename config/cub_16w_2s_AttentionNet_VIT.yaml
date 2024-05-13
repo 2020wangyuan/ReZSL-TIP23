@@ -43,11 +43,11 @@ DATALOADER:
 
 SOLVER:
   MAX_EPOCH: 3000
-  BASE_LR: 4e-4
+  BASE_LR: 9.5e-4
   WEIGHT_DECAY: 1e-5
   MOMENTUM: 0.9
-  GAMMA: 0.9
-  STEPS: 3
+  GAMMA: 0.1
+  STEPS: 10
   DATA_AUG: "resize_random_crop"
 
 

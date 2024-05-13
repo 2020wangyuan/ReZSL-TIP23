@@ -489,11 +489,6 @@ class my_SimCLR3(nn.Module):
 
         self.T = T
 
-        # create the encoders
-        # num_classes is the output fc dimension
-        self.encoder_q = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
-
-
         self.CLproject = []
         for i in range(1):
             layer = nn.Sequential(nn.Linear(312, 1024), nn.ReLU(),nn.Dropout(0.1),
@@ -516,20 +511,27 @@ class my_SimCLR3(nn.Module):
             self.CLproject.append(layer)
 
 
+        # create the encoders
+        # num_classes is the output fc dimension
+        self.encoder_q = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
 
-        """
-        self.CLproject = [nn.Sequential(nn.Linear(312, 128), nn.ReLU()).to('cuda') for i in range(312)]
-        for layer in self.CLproject:
-            torch.nn.init.normal_(layer[0].weight, mean=0.0, std=0.01)
-            torch.nn.init.constant_(layer[0].bias, 0.0)  # 初始化偏置为常数，这里设为0
-        """
+        self.scls_num = self.encoder_q.scls_num
+        self.attritube_num = self.encoder_q.attritube_num
+        self.dim = self.encoder_q.feat_channel
+
+        # create the queue
+        self.register_buffer("queue", torch.randn(self.scls_num, self.attritube_num,self.dim))
+        self.queue = nn.functional.normalize(self.queue, dim=2)
+
+
+
         self.cosine_dis = self.encoder_q.cosine_dis
 
 
 
 
 
-    def forward(self, x, support_att, target_img=None, masked_one_hot=None, selected_layer=0, q_labels=None,
+    def forward(self, x, support_att, labels = None,target_img=None, masked_one_hot=None, selected_layer=0, q_labels=None,
                 sampler=None):
         """
         在forward函数的基础上加入自己的代理任务
@@ -584,7 +586,6 @@ class my_SimCLR3(nn.Module):
         else:
             v2s = self.encoder_q(x=x,
                                  support_att=support_att,
-
                                  )  # queries: NxC
 
             return v2s
