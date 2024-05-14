@@ -60,6 +60,7 @@ def do_train(
         reg_loss_epoch = []
         reconstruct_loss_epoch = []
         contrastive_learning_loss_epoch = []
+        part_CL_loss_epoch = []
 
         scheduler.step()
 
@@ -67,9 +68,10 @@ def do_train(
         model_type = cfg.MODEL.META_ARCHITECTURE
 
         for iteration, (batch_img, batch_att, batch_label) in enumerate(tr_dataloader):
-
+            part_CL_loss = None
             CL_loss = None
             logit = None
+            part_CL_logits = None
 
             # 选择用于重构的隐藏层的输出feature
             selected_layer = random.randint(0, 11)
@@ -107,7 +109,7 @@ def do_train(
                                                                  masked_one_hot=mask_one_hot,
                                                                  selected_layer=selected_layer)
                 elif model_type == 'SimCLR3':
-                    v2s, reconstruct_x, reconstruct_loss, logit, labels = model(x=batch_img, target_img=resized_image,
+                    v2s, reconstruct_x, reconstruct_loss, logit, labels,part_CL_logits,part_CL_labels = model(x=batch_img, target_img=resized_image,
                                                                                 labels = batch_label,
                                                                                 support_att=support_att_seen,
                                                                                 masked_one_hot=mask_one_hot,
@@ -145,19 +147,30 @@ def do_train(
                 if  model_type != 'AttentionNet' and logit is not None :
                     CL_loss = contrastive_loss(logit, labels)
 
+                if  model_type != 'AttentionNet' and part_CL_logits is not None :
+                    part_CL_loss = contrastive_loss(part_CL_logits, part_CL_labels)
+
                 loss = lamd[0] * Lcls + lamd[1] * Lreg + 1 * reconstruct_loss
 
                 if CL_loss is not None:
                     loss += CL_loss * 0.20
 
+                if part_CL_loss is not  None:
+                    loss += part_CL_loss * 0.0001
+
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+
 
                 if CL_loss is None:
 
                     log_info = 'epoch: %d, it: %d/%d  |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss: %.4f, lr: %.10f' % \
                                (epoch + 1, iteration, num_steps, loss, Lcls, Lreg, reconstruct_loss,
+                                optimizer.param_groups[0]["lr"])
+                elif CL_loss is not None and part_CL_loss is not None:
+                    log_info = 'epoch: %d, it: %d/%d  |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss: %.4f, CL_loss: %.4f,part_CL_loss: %.4f, lr: %.10f' % \
+                               (epoch + 1, iteration, num_steps, loss, Lcls, Lreg, reconstruct_loss, CL_loss,part_CL_loss,
                                 optimizer.param_groups[0]["lr"])
                 else:
                     log_info = 'epoch: %d, it: %d/%d  |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss: %.4f, CL_loss: %.4f, lr: %.10f' % \
@@ -207,6 +220,8 @@ def do_train(
             reconstruct_loss_epoch.append(reconstruct_loss.item())
             if CL_loss is not None:
                 contrastive_learning_loss_epoch.append(CL_loss.item())
+            if part_CL_loss is not None:
+                part_CL_loss_epoch.append(part_CL_loss.item())
 
         if is_main_process():
             losses += loss_epoch
@@ -223,9 +238,14 @@ def do_train(
             else:
                 contrastive_learning_loss_epoch_mean = sum(contrastive_learning_loss_epoch) / len(contrastive_learning_loss_epoch)
 
-            log_info = 'epoch: %d |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss_epoch: %.4f, contrastive_learning_loss_epoch: %.4f, lr: %.10f' % \
+            if len(part_CL_loss_epoch) ==0:
+                part_CL_loss_epoch = 0;
+            else:
+                part_CL_loss_epoch = sum(part_CL_loss_epoch)/len(part_CL_loss_epoch)
+
+            log_info = 'epoch: %d |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss_epoch: %.4f, contrastive_learning_loss_epoch: %.4f,part_CL_loss_epoch: %.4f, lr: %.10f' % \
                        (epoch + 1, loss_epoch_mean, cls_loss_epoch_mean, reg_loss_epoch_mean,
-                        reconstruct_loss_epoch_mean, contrastive_learning_loss_epoch_mean,
+                        reconstruct_loss_epoch_mean, contrastive_learning_loss_epoch_mean,part_CL_loss_epoch,
                         optimizer.param_groups[0]["lr"])
             print(log_info)
         mask = torch.gt(ReZSL.mean_value, 0.0)

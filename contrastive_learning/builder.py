@@ -521,10 +521,10 @@ class my_SimCLR3(nn.Module):
 
 
 
-        params = torch.randn(self.scls_num, self.attritube_num,self.dim)
+        params = torch.randn([self.scls_num, self.attritube_num,self.dim],requires_grad=False)
         params = nn.functional.normalize(params, dim=2)
-        self.ema = params.to('cuda')
-        self.decay = 0.90
+        self.ema = params.clone().detach().to('cuda')
+        self.decay = 0.9
 
 
         self.cosine_dis = self.encoder_q.cosine_dis
@@ -561,7 +561,13 @@ class my_SimCLR3(nn.Module):
                                                                      sampled_atts=sampler.target_att)  # queries: NxC
 
             batch_part_feature = self.encoder_q.part_feature
-            self.emp_update(batch_part_feature, labels)
+            self.ema_update(batch_part_feature, labels)
+
+            # 开始算part contrastive learning 的 logit
+            cache_part_feature = self.ema[labels].clone().detach()
+            part_CL_logits =  torch.einsum('bij,bkl->bik',cache_part_feature, batch_part_feature)
+            part_CL_label = torch.arange(0,312).to('cuda')
+            part_CL_label = part_CL_label.repeat(part_CL_logits.shape[0], 1)
 
 
 
@@ -586,7 +592,7 @@ class my_SimCLR3(nn.Module):
             labels = torch.zeros(logits_all.shape[0], dtype=torch.long).cuda()
 
 
-            return v2s, reconstruct_x, reconstruct_loss, logits_all, labels
+            return v2s, reconstruct_x, reconstruct_loss, logits_all, labels,part_CL_logits, part_CL_label
 
         else:
             v2s = self.encoder_q(x=x,
@@ -596,15 +602,9 @@ class my_SimCLR3(nn.Module):
             return v2s
 
 
-    def emp_update(self,batch_part_feature,batch_labels):
+    def ema_update(self, batch_part_feature, batch_labels):
         batch_labels = batch_labels.to('cuda')
         batch_part_feature = batch_part_feature.clone().detach()
-        old = self.ema[94]
-        batch = self.ema[batch_labels]
-        new_batch = (1.0 - self.decay) * batch + self.decay * batch_part_feature
-        self.ema[batch_labels.tolist()] = new_batch
-        new = self.ema[94]
+        self.ema[batch_labels] = ((1.0 - self.decay) * self.ema[batch_labels].clone().detach()
+                                  + self.decay * batch_part_feature)
 
-        dif = new - old
-
-        pass
