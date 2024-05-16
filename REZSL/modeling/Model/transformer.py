@@ -42,19 +42,24 @@ class ViT1(nn.Module):
     def __init__(self, model_name='google/vit-large-patch16-224-in21k', pretrained=True):
         super(ViT1, self).__init__()
         if model_name == 'google/vit-large-patch16-224-in21k':
-            self.vit = ViTModel.from_pretrained("/home/wangyuan/project/ReZSL/pretrained_model/VIT/large")
+            self.vit = ViTModel.from_pretrained("/mnt/mydisk1/home/wangyuan/project/ReZSL/pretrained_model/VIT/large")
             # self.vit = torch.load('/home/wangyuan/project/ReZSL/pretrained_model/VIT/large/pytorch_model.bin')
         elif model_name == 'google/vit-base-patch16-224':
-            self.vit = ViTModel.from_pretrained("/home/wangyuan/project/ReZSL/pretrained_model/VIT/base")
+            self.vit = ViTModel.from_pretrained("/mnt/mydisk1/home/wangyuan/project/ReZSL/pretrained_model/VIT/base")
 
 
 
-    def forward(self, x):
-        outputs = self.vit(x,output_hidden_states = True)
-        x = outputs.last_hidden_state
+    def forward(self, x,output_attention = None):
+        if output_attention is None:
+            outputs = self.vit(x,output_hidden_states = True )
+            x = outputs.last_hidden_state
 
-        return x[:, 0], x[:, 1:],outputs.hidden_states
+            return x[:, 0], x[:, 1:],outputs.hidden_states
+        else:
+            outputs = self.vit(x, output_hidden_states=True,output_attentions = output_attention)
+            x = outputs.last_hidden_state
 
+            return x[:, 0], x[:, 1:],outputs.hidden_states,outputs.attentions
 
 if __name__ == '__main__':
     # r18_features = resnet18_features(pretrained=True)

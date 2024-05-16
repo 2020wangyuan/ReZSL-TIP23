@@ -6,7 +6,8 @@ MODEL:
   #META_ARCHITECTURE: "AttentionNet"
   #META_ARCHITECTURE: "MoCo"
   #META_ARCHITECTURE: "SimCLR2"
-  META_ARCHITECTURE: "SimCLR3"
+  #META_ARCHITECTURE: "SimCLR3"
+  META_ARCHITECTURE: "AttentionNet2"
   SCALE: 20.0
   HID_DIM: 0
   BACKBONE:
@@ -16,7 +17,7 @@ MODEL:
   ATTENTION:
     CHANNEL: 512
     WEIGHT_SHARED: True
-    W2V_PATH: "/home/wangyuan/project/data/w2v"
+    W2V_PATH: "/mnt/mydisk1/home/wangyuan/project/data/w2v"
   LOSS:
     LAMBDA0: 1.0
     LAMBDA1: 1.0
@@ -33,8 +34,8 @@ MODEL:
 DATASETS:
   NAME: "CUB"
   IMAGE_SIZE: 224
-  WAYS: 16 #16
-  SHOTS: 2 #2
+  WAYS: 1 #16
+  SHOTS: 1 #2
   SEMANTIC: 'original'
   SEMANTIC_TYPE: 'GBU'
 
