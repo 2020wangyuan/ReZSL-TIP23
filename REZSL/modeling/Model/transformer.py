@@ -4,6 +4,7 @@ import timm
 from transformers import AutoImageProcessor, ViTModel
 
 
+
 class ViT(nn.Module):
     def __init__(self, model_name="vit_large_patch16_224_in21k", pretrained=True):
         super(ViT, self).__init__()
@@ -61,6 +62,18 @@ class ViT1(nn.Module):
 
             return x[:, 0], x[:, 1:],outputs.hidden_states,outputs.attentions
 
+class backbone_ViM(nn.Module):
+    def __init__(self, model_name='hustvl/Vim-small-midclstok', pretrained=True):
+        if model_name == "hustvl/Vim-small-midclstok":
+            checkpoint_path = "/home/wangyuan/project/ReZSL/pretrained_model/VIM/Vim-small-midclstok/vim_s_midclstok_80p5acc.pth"
+            model = torch.load(checkpoint_path)
+
+
+    def forward(self,x):
+        return self.ViM(x)
+
+
+
 if __name__ == '__main__':
     # r18_features = resnet18_features(pretrained=True)
     # print(r18_features)
@@ -72,7 +85,6 @@ if __name__ == '__main__':
     # print(r50_features)
 
     vit_features = ViT1(model_name='google/vit-base-patch16-224', pretrained=True)
-
     import torch
     from torchvision import transforms
     from PIL import Image
@@ -87,7 +99,7 @@ if __name__ == '__main__':
     # 添加批次维度
     image_tensor = image_tensor.unsqueeze(0)
 
-    x,y,hid = vit_features(image_tensor)
+    x = vim_features(image_tensor)
 
     pass
 

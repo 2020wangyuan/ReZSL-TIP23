@@ -848,11 +848,13 @@ class AttentionNet2(nn.Module):
             vit_attention = torch.sum(vit_attention, dim=1)
             vit_attention = vit_attention / torch.sum(vit_attention, dim=1, keepdim=True)
 
+            hidden_feat = output_hidden_states[-3]
+
             remain_ratio = 0.5
             _,top_indices = torch.topk(vit_attention, int(vit_attention.shape[1]*remain_ratio), dim = 1)
             sorted_indices = torch.argsort(patch_feat, dim=1)
             selected_sorted_indices = torch.gather(sorted_indices, 1, top_indices.unsqueeze(-1))
-            object_feat = torch.gather(patch_feat, 1, selected_sorted_indices.expand(-1, -1, patch_feat.size(-1)))
+            object_feat = torch.gather(hidden_feat, 1, selected_sorted_indices.expand(-1, -1, hidden_feat.size(-1)))
             object_feat = object_feat.permute(0, 2, 1)
 
 
