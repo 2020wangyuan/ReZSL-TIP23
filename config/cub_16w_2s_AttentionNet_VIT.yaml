@@ -17,7 +17,7 @@ MODEL:
   ATTENTION:
     CHANNEL: 512
     WEIGHT_SHARED: True
-    W2V_PATH: "/mnt/mydisk1/home/wangyuan/project/data/w2v"
+    W2V_PATH: "/home/wangyuan/project/data/w2v"
   LOSS:
     LAMBDA0: 1.0
     LAMBDA1: 1.0
@@ -34,8 +34,8 @@ MODEL:
 DATASETS:
   NAME: "CUB"
   IMAGE_SIZE: 224
-  WAYS: 1 #16
-  SHOTS: 1 #2
+  WAYS: 16 #16
+  SHOTS: 2 #2
   SEMANTIC: 'original'
   SEMANTIC_TYPE: 'GBU'
 
@@ -45,7 +45,7 @@ DATALOADER:
 
 SOLVER:
   MAX_EPOCH: 3000
-  BASE_LR: 1.e-3
+  BASE_LR: 3.e-3
   WEIGHT_DECAY: 1e-5
   MOMENTUM: 0.9
   GAMMA: 0.1

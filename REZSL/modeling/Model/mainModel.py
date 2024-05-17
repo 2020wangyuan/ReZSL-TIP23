@@ -843,7 +843,19 @@ class AttentionNet2(nn.Module):
                 v2s = self.res_attention_module(feat, support_att)  # B,312
                 return v2s
         else:
-            global_feat, patch_feat, output_hidden_states = self.conv_features(x)  # B, 2048, 14, 14
+            global_feat, patch_feat, output_hidden_states,vit_attention = self.conv_features(x,True)  # B, 2048, 14, 14
+            vit_attention = vit_attention[-1][:,:,0,1:]
+            vit_attention = torch.sum(vit_attention, dim=1)
+            vit_attention = vit_attention / torch.sum(vit_attention, dim=1, keepdim=True)
+
+            remain_ratio = 0.5
+            _,top_indices = torch.topk(vit_attention, int(vit_attention.shape[1]*remain_ratio), dim = 1)
+            sorted_indices = torch.argsort(patch_feat, dim=1)
+            selected_sorted_indices = torch.gather(sorted_indices, 1, top_indices.unsqueeze(-1))
+            object_feat = torch.gather(patch_feat, 1, selected_sorted_indices.expand(-1, -1, patch_feat.size(-1)))
+            object_feat = object_feat.permute(0, 2, 1)
+
+
             self.patch_features = patch_feat
             patch_feat = patch_feat.permute(0, 2, 1)
             B, C = global_feat.shape
@@ -854,7 +866,7 @@ class AttentionNet2(nn.Module):
                                                               getAttention)  # B, 312
                 return v2s, attentionMap
             else:
-                v2s = self.vit_attention_module(global_feat.view(B, C, 1), patch_feat, support_att)  # B,312
+                v2s = self.vit_attention_module(global_feat.view(B, C, 1), object_feat, support_att)  # B,312
 
                 if masked_one_hot is not None:
                     global_feat = global_feat.unsqueeze(1)
@@ -975,10 +987,10 @@ class AttentionNet2(nn.Module):
             x = self.backbone(x)  # if resnet, x: [b,w,h,2048], if vit x: [b,w,h,2048]
             return x
         elif self.backbone_type == 'vit':
-            x, semantic_feat, output_hidden_states = self.backbone(
+            x, semantic_feat, output_hidden_states,vit_attention = self.backbone(
                 x,output_attention)  # if resnet, x: [b,w,h,2048], if vit x: [b,w,h,2048]
             # global feat,part feat,hidden_states
-            return x, semantic_feat, output_hidden_states
+            return x, semantic_feat, output_hidden_states,vit_attention
 
     def euclidean_dist(self, prediction, support_att, norm=False):
         if norm == False:
