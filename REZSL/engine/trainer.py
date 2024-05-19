@@ -86,7 +86,7 @@ def do_train(
             #batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.1)
 
             # 只mask embedding
-            _, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.25)
+            _, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.5)
             batch_att = batch_att.to(device)
             batch_label = batch_label.to(device)
 
@@ -108,7 +108,7 @@ def do_train(
                                                                  support_att=support_att_seen,
                                                                  masked_one_hot=mask_one_hot,
                                                                  selected_layer=selected_layer)
-                elif model_type == 'SimCLR3':
+                elif model_type == 'SimCLR3' or model_type == "SimCLR4":
                     v2s, reconstruct_x, reconstruct_loss, logit, labels,part_CL_logits,part_CL_labels = model(x=batch_img, target_img=resized_image,
                                                                                 labels = batch_label,
                                                                                 support_att=support_att_seen,
@@ -156,7 +156,7 @@ def do_train(
                     loss += CL_loss * 0.20
 
                 if part_CL_loss is not  None:
-                    loss += part_CL_loss * 0
+                    loss += part_CL_loss * 0.20
 
                 optimizer.zero_grad()
                 loss.backward()
