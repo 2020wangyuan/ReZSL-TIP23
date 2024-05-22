@@ -8,6 +8,7 @@ from REZSL.modeling import weighted_RegressLoss, ADLoss, CPTLoss, build_zsl_pipe
     get_attributes_info, get_attr_group
 from REZSL.data.transforms.data_transform import batch_random_mask
 import random
+from REZSL.utils import  set_seed
 
 
 def do_train(
@@ -31,6 +32,9 @@ def do_train(
         cfg,
         cl_sampler=None
 ):
+    seed = cfg.SEED
+    set_seed(seed)
+
     model.to(device)
     best_performance = [-0.1, -0.1, -0.1, -0.1, -0.1]  # ZSL, S, U, H, AUSUC
     best_epoch = -1

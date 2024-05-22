@@ -9,6 +9,7 @@ from contextlib import contextmanager
 
 import torch
 from torch.autograd import Variable
+import torch.backends.cudnn as cudnn
 
 
 def time_str(fmt=None):
@@ -502,8 +503,12 @@ def set_seed(seed):
   print('cudnn.enabled set to {}'.format(torch.backends.cudnn.enabled))
   # set seed for CPU
   torch.manual_seed(seed)
+  cudnn.deterministic = True
   torch.cuda.manual_seed_all(seed)
+  cudnn.benchmark = True
   print('setting torch-seed to {}'.format(seed))
+
+
 
 
 def print_array(array, fmt='{:.2f}', end=' '):
