@@ -616,7 +616,7 @@ class my_SimCLR4(nn.Module):
     """
 
     def __init__(self, build_AttentionNet, cfg,
-                 T=0.12,
+                 T=0.12,decay = 0.8,
                  contrastive_learning=True):
         """
         dim: feature dimension (default: 128)
@@ -665,7 +665,7 @@ class my_SimCLR4(nn.Module):
         params = torch.randn([self.scls_num, self.attritube_num,128],requires_grad=False)
         params = nn.functional.normalize(params, dim=2)
         self.ema = params.clone().detach().to('cuda')
-        self.decay = 0.8
+        self.decay = decay
 
 
         self.cosine_dis = self.encoder_q.cosine_dis

@@ -529,11 +529,11 @@ class AttentionNet1(nn.Module):
                                                    requires_grad=True)  # S, H
 
         # 768 for base ViT , 1024 for large ViT
-        self.mae = [MaskedAutoencoderViT(img_size=224, patch_size=16, embed_dim=768).to(device),
-            MaskedAutoencoderViT(img_size=112, patch_size=8, embed_dim=768).to(device),
-            MaskedAutoencoderViT(img_size=56, patch_size=4, embed_dim=768).to(device),
-            MaskedAutoencoderViT(img_size=28, patch_size=2, embed_dim=768).to(device),
-            MaskedAutoencoderViT(img_size=14, patch_size=1, embed_dim=768).to(device),
+        self.mae = [MaskedAutoencoderViT(img_size=224, patch_size=16, embed_dim=c).to(device),
+            MaskedAutoencoderViT(img_size=112, patch_size=8, embed_dim=c).to(device),
+            MaskedAutoencoderViT(img_size=56, patch_size=4, embed_dim=c).to(device),
+            MaskedAutoencoderViT(img_size=28, patch_size=2, embed_dim=c).to(device),
+            MaskedAutoencoderViT(img_size=14, patch_size=1, embed_dim=c).to(device),
         ]
 
         self.patch_features = None

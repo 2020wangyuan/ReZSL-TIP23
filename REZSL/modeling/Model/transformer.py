@@ -62,15 +62,6 @@ class ViT1(nn.Module):
 
             return x[:, 0], x[:, 1:],outputs.hidden_states,outputs.attentions
 
-class backbone_ViM(nn.Module):
-    def __init__(self, model_name='hustvl/Vim-small-midclstok', pretrained=True):
-        if model_name == "hustvl/Vim-small-midclstok":
-            checkpoint_path = "/home/wangyuan/project/ReZSL/pretrained_model/VIM/Vim-small-midclstok/vim_s_midclstok_80p5acc.pth"
-            model = torch.load(checkpoint_path)
-
-
-    def forward(self,x):
-        return self.ViM(x)
 
 
 

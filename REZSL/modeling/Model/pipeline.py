@@ -83,11 +83,14 @@ def build_AttentionNet(cfg, contrastive_learning=False):
         # c, w, h = 768, img_size // 16, img_size // 16
         # c, w, h = 1024, img_size // 16, img_size // 16
         c, w, h = 768, img_size // 16, img_size // 16  # for vit_large_patch16_224_in21k
+        model_name = "google/vit-large-patch16-224-in21k"
+        if model_name == 'google/vit-large-patch16-224-in21k':
+            c, w, h = 1024, img_size // 16, img_size // 16
         if img_size == 224:
             # backbone = ViT(model_name="vit_base_patch16_224", pretrained=pretrained)
             # backbone = ViT(model_name="vit_large_patch16_224_in21k", pretrained=pretrained)
             # backbone = ViT1(model_name="google/vit-large-patch16-224-in21k", pretrained=pretrained)
-            backbone = ViT1(model_name="google/vit-base-patch16-224", pretrained=pretrained)
+            backbone = ViT1(model_name=model_name, pretrained=pretrained)
         else:  # img_size == 384
             backbone = ViT(model_name="vit_base_patch16_384", pretrained=pretrained)
 
