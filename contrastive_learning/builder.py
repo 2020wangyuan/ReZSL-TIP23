@@ -750,3 +750,146 @@ class my_SimCLR4(nn.Module):
         batch_part_feature = batch_part_feature.clone().detach()
         self.ema[batch_labels] = ((1.0 - self.decay) * self.ema[batch_labels].clone().detach()
                                   + self.decay * batch_part_feature)
+
+class my_SimCLR5(nn.Module):
+    """
+    Build a MoCo model with: a query encoder, a key encoder, and a queue
+    https://arxiv.org/abs/1911.05722
+    """
+
+    def __init__(self, build_AttentionNet, cfg,
+                 T=0.12,
+                 contrastive_learning=True):
+        """
+        dim: feature dimension (default: 128)
+        K: queue size; number of negative keys (default: 65536)
+        m: contrastive_learning momentum of updating key encoder (default: 0.999)
+        T: softmax temperature (default: 0.07)
+        """
+        super(my_SimCLR5, self).__init__()
+
+        self.T = T
+
+        self.CLproject = []
+        for i in range(1):
+            layer = nn.Sequential(nn.Linear(312, 1024), nn.ReLU(),nn.Dropout(0.1),
+                                  nn.Linear(1024, 2048), nn.ReLU(),nn.Dropout(0.1),
+                                  nn.Linear(2048, 128), nn.ReLU(),
+                                  ).to('cuda')
+            for i in [0,3,6,]:
+                torch.nn.init.normal_(layer[i].weight, mean=0.0, std=0.01)
+                torch.nn.init.constant_(layer[i].bias, 0.0)  # 初始化偏置为常数，这里设为0
+            self.CLproject.append(layer)
+
+            layer = nn.Sequential(nn.Linear(1, 1024), nn.ReLU(), nn.Dropout(0.1),
+                                  nn.Linear(1024, 2048), nn.ReLU(), nn.Dropout(0.1),
+                                  nn.Linear(2048, 312), nn.ReLU(),
+                                  ).to('cuda')
+
+            for i in [0,3,6,]:
+                torch.nn.init.normal_(layer[i].weight, mean=0.0, std=0.01)
+                torch.nn.init.constant_(layer[i].bias, 0.0)  # 初始化偏置为常数，这里设为0
+            self.CLproject.append(layer)
+
+
+        # create the encoders
+        # num_classes is the output fc dimension
+        self.encoder_q = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
+
+        self.scls_num = self.encoder_q.scls_num
+        self.attritube_num = self.encoder_q.attritube_num
+        self.dim = self.encoder_q.feat_channel
+
+        self.reduction = nn.Linear(self.dim,256)
+        torch.nn.init.normal_(self.reduction.weight, mean=0.0, std=0.01)
+        torch.nn.init.constant_(self.reduction.bias, 0.0)
+
+
+        params = torch.randn([self.scls_num, self.attritube_num,256],requires_grad=False)
+        params = nn.functional.normalize(params, dim=2)
+        self.ema = params.clone().detach().to('cuda')
+        self.decay = 0.99
+
+
+        self.cosine_dis = self.encoder_q.cosine_dis
+
+
+
+
+
+    def forward(self, x, support_att, labels = None,target_img=None, masked_one_hot=None, selected_layer=0, q_labels=None,
+                sampler=None):
+        """
+        在forward函数的基础上加入自己的代理任务
+        Input:
+            im_q即x: a batch of query images
+            q_att_binary: im_q对应的二进制属性
+            q_labels: im_q对应的标签
+        Output:
+            logits, targets
+        """
+
+        pos_cat_neg_samples = None
+        logits_all = None
+
+        # compute query features
+
+        if sampler is not None:
+
+            tar_atts, pos_sample_list, neg_samples_list = sampler.sample_from_batch(q_labels)
+            sample_index_list = [i + j for i, j in zip(pos_sample_list, neg_samples_list)]
+            v2s, reconstruct_x, reconstruct_loss, _ = self.encoder_q(x=x, target_img=target_img,
+                                                                     support_att=support_att,
+                                                                     masked_one_hot=masked_one_hot,
+                                                                     selected_layer=selected_layer,
+                                                                     sampled_atts=sampler.target_att)  # queries: NxC
+
+            #batch_part_feature = self.encoder_q.part_feature
+            batch_part_feature = self.encoder_q.part_feature_another_style
+            batch_part_feature = self.reduction(batch_part_feature)
+            self.ema_update(batch_part_feature, labels)
+
+            # 开始算part contrastive learning 的 logit
+            cache_part_feature = self.ema[labels].clone().detach()
+            part_CL_logits =  torch.einsum('bij,bkl->bik',cache_part_feature, batch_part_feature)
+            part_CL_label = torch.arange(0,312).to('cuda')
+            part_CL_label = part_CL_label.repeat(part_CL_logits.shape[0], 1)
+
+
+
+            pos_cat_neg_samples = []
+            for l in sample_index_list:
+                cat_sample = v2s.detach().clone()[l]
+                pos_cat_neg_samples.append(cat_sample)
+
+            pos_cat_neg_samples = pad_tensor_list_to_uniform_length2(pos_cat_neg_samples)
+            pos_cat_neg_samples = [self.CLproject[0](pos_cat_neg_samples[i].detach().clone()+self.CLproject[1](tar_atts[i].float())) for i in range(len(pos_cat_neg_samples))]
+            query = [self.CLproject[0](v2s[i].detach().clone()+self.CLproject[1](tar_atts[i].float())) for i in range(len(tar_atts))]
+
+            logits_all = []
+            for i in range(len(pos_cat_neg_samples)):
+                logits = torch.einsum("c,kc->k", query[i], pos_cat_neg_samples[i])
+                logits_all.append(logits)
+
+            logits_all = torch.stack(logits_all, dim=0)
+
+            logits_all /= self.T
+
+            labels = torch.zeros(logits_all.shape[0], dtype=torch.long).cuda()
+
+
+            return v2s, reconstruct_x, reconstruct_loss, logits_all, labels,part_CL_logits, part_CL_label
+
+        else:
+            v2s = self.encoder_q(x=x,
+                                 support_att=support_att,
+                                 )  # queries: NxC
+
+            return v2s
+
+
+    def ema_update(self, batch_part_feature, batch_labels):
+        batch_labels = batch_labels.to('cuda')
+        batch_part_feature = batch_part_feature.clone().detach()
+        self.ema[batch_labels] = ((1.0 - self.decay) * self.ema[batch_labels].clone().detach()
+                                  + self.decay * batch_part_feature)

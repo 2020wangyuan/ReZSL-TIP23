@@ -16,8 +16,8 @@ import copy
 
 class ImgDatasetParam(object):
     DATASETS = {
-        "imgroot": '/home/wangyuan/project/data/CUB',
-        "dataroot": '/home/wangyuan/project/DUET/data',
+        "imgroot": '/mnt/mydisk1/home/wangyuan/project/data/CUB',
+        "dataroot": '/mnt/mydisk1/home/wangyuan/project/DUET/data',
         "image_embedding": 'res101',
         "class_embedding": 'att'
     }

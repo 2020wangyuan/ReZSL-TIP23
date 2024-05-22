@@ -539,6 +539,7 @@ class AttentionNet1(nn.Module):
         self.patch_features = None
 
         self.part_feature = None
+        self.part_feature_another_style = None
 
     # x is masked image
     def forward(self, x, target_img=None, selected_layer=0, label_att=None, label=None, support_att=None,
@@ -626,6 +627,8 @@ class AttentionNet1(nn.Module):
         # use attented_feat_final as part feature
         self.part_feature = None
         self.part_feature = attented_feat_final
+        self.part_feature_another_style = None
+        self.part_feature_another_style = attented_feat_o
 
         # visual to semantic
         if self.hid_dim == 0:

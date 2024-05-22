@@ -108,7 +108,7 @@ def do_train(
                                                                  support_att=support_att_seen,
                                                                  masked_one_hot=mask_one_hot,
                                                                  selected_layer=selected_layer)
-                elif model_type == 'SimCLR3' or model_type == "SimCLR4":
+                elif model_type == 'SimCLR3' or model_type == "SimCLR4" or model_type == "SimCLR5":
                     v2s, reconstruct_x, reconstruct_loss, logit, labels,part_CL_logits,part_CL_labels = model(x=batch_img, target_img=resized_image,
                                                                                 labels = batch_label,
                                                                                 support_att=support_att_seen,
