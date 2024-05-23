@@ -71,11 +71,24 @@ def do_train(
         num_steps = len(tr_dataloader)
         model_type = cfg.MODEL.META_ARCHITECTURE
 
+        part_CL_loss = 0
+        CL_loss = 1
+        logit = 2
+        part_CL_logits = 3
+        part_CL_labels = 4
+        labels = 5
+        reconstruct_loss= 6
+        reconstruct_x= 7
+
         for iteration, (batch_img, batch_att, batch_label) in enumerate(tr_dataloader):
             part_CL_loss = None
             CL_loss = None
             logit = None
             part_CL_logits = None
+            part_CL_labels= None
+            labels= None
+            reconstruct_loss= None
+            reconstruct_x = None
 
             # 选择用于重构的隐藏层的输出feature
             selected_layer = random.randint(0, 11)
@@ -112,6 +125,13 @@ def do_train(
                                                                  support_att=support_att_seen,
                                                                  masked_one_hot=mask_one_hot,
                                                                  selected_layer=selected_layer)
+                elif model_type == 'SimCLR3':
+                    v2s, reconstruct_x, reconstruct_loss, logit, labels,part_CL_logits,part_CL_labels = model(x=batch_img, target_img=resized_image,
+                                                                                support_att=support_att_seen,
+                                                                                masked_one_hot=mask_one_hot,
+                                                                                selected_layer=selected_layer,
+                                                                                sampler=cl_sampler,
+                                                                                q_labels=batch_label)
                 elif model_type == 'SimCLR3' or model_type == "SimCLR4" or model_type == "SimCLR5":
                     v2s, reconstruct_x, reconstruct_loss, logit, labels,part_CL_logits,part_CL_labels = model(x=batch_img, target_img=resized_image,
                                                                                 labels = batch_label,

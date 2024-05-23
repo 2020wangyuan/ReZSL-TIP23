@@ -347,10 +347,7 @@ class my_SimCLR(nn.Module):
 
 
 class my_SimCLR2(nn.Module):
-    """
-    Build a MoCo model with: a query encoder, a key encoder, and a queue
-    https://arxiv.org/abs/1911.05722
-    """
+
 
     def __init__(self, build_AttentionNet, cfg,
                  T=0.12,
@@ -510,14 +507,12 @@ class my_SimCLR3(nn.Module):
         self.attritube_num = self.encoder_q.attritube_num
         self.dim = self.encoder_q.feat_channel
 
-        params = torch.randn([self.scls_num, self.attritube_num, self.dim], requires_grad=False)
-        params = nn.functional.normalize(params, dim=2)
-        self.ema = params.clone().detach().to('cuda')
+        self.register_buffer('ema', torch.zeros(self.scls_num, self.attritube_num, self.dim))
         self.decay = 0.99
 
         self.cosine_dis = self.encoder_q.cosine_dis
 
-    def forward(self, x, support_att, labels=None, target_img=None, masked_one_hot=None, selected_layer=0,
+    def forward(self, x, support_att,  target_img=None, masked_one_hot=None, selected_layer=0,
                 q_labels=None,
                 sampler=None):
         """
@@ -546,10 +541,10 @@ class my_SimCLR3(nn.Module):
                                                                      sampled_atts=sampler.target_att)  # queries: NxC
 
             batch_part_feature = self.encoder_q.part_feature
-            self.ema_update(batch_part_feature, labels)
+            self.ema_update(batch_part_feature.clone().detach(), q_labels)
 
             # 开始算part contrastive learning 的 logit
-            cache_part_feature = self.ema[labels].clone().detach()
+            cache_part_feature = self.ema[q_labels].clone().detach()
             part_CL_logits = torch.einsum('bij,bkl->bik', cache_part_feature, batch_part_feature)
             part_CL_label = torch.arange(0, 312).to('cuda')
             part_CL_label = part_CL_label.repeat(part_CL_logits.shape[0], 1)
@@ -587,10 +582,13 @@ class my_SimCLR3(nn.Module):
             return v2s
 
     def ema_update(self, batch_part_feature, batch_labels):
-        batch_labels = batch_labels.to('cuda')
+
         batch_part_feature = batch_part_feature.clone().detach()
-        self.ema[batch_labels] = ((1.0 - self.decay) * self.ema[batch_labels].clone().detach()
-                                  + self.decay * batch_part_feature)
+        for i in range(len(batch_labels)):
+            self.ema[batch_labels[i]] = ((1.0 - self.decay) * self.ema[batch_labels[i]].clone().detach()
+                                      + self.decay * batch_part_feature[i])
+
+
 
 
 class my_SimCLR4(nn.Module):
@@ -737,7 +735,7 @@ class my_SimCLR5(nn.Module):
     """
 
     def __init__(self, build_AttentionNet, cfg,
-                 T=0.12,
+                 T=0.12,decay = 0.8,
                  contrastive_learning=True):
         """
         dim: feature dimension (default: 128)
@@ -784,7 +782,7 @@ class my_SimCLR5(nn.Module):
         torch.nn.init.constant_(self.reduction.bias, 0.0)
 
         self.register_buffer('ema', torch.zeros(self.scls_num, self.attritube_num, self.part_feature_dim))
-        self.decay = 0.99
+        self.decay = decay
 
         self.cosine_dis = self.encoder_q.cosine_dis
 
@@ -860,8 +858,8 @@ class my_SimCLR5(nn.Module):
             return v2s
 
     def ema_update(self, batch_part_feature, batch_labels):
-        with torch.no_grad():
-            batch_labels = batch_labels.to('cuda')
-            batch_part_feature = batch_part_feature.clone().detach()
-            self.ema[batch_labels] = ((1.0 - self.decay) * self.ema[batch_labels].clone().detach()
-                                      + self.decay * batch_part_feature)
+
+        batch_part_feature = batch_part_feature.clone().detach()
+        for i in range(len(batch_labels)):
+            self.ema[batch_labels[i]] = ((1.0 - self.decay) * self.ema[batch_labels[i]].clone().detach()
+                                      + self.decay * batch_part_feature[i])
