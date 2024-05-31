@@ -103,7 +103,7 @@ def do_train(
             #batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.1)
 
             # 只mask embedding
-            _, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.25)
+            _, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.6)
             batch_att = batch_att.to(device)
             batch_label = batch_label.to(device)
 
@@ -132,7 +132,8 @@ def do_train(
                                                                                 selected_layer=selected_layer,
                                                                                 sampler=cl_sampler,
                                                                                 q_labels=batch_label)
-                elif model_type == 'SimCLR3' or model_type == "SimCLR4" or model_type == "SimCLR5":
+                elif (model_type == 'SimCLR3' or model_type == "SimCLR4" or model_type == "SimCLR5"
+                      or model_type == "SimCLR6"):
                     v2s, reconstruct_x, reconstruct_loss, logit, labels,part_CL_logits,part_CL_labels = model(x=batch_img, target_img=resized_image,
                                                                                 labels = batch_label,
                                                                                 support_att=support_att_seen,
@@ -161,10 +162,10 @@ def do_train(
                     score, cos_dist = model.cosine_dis(pred_att=v2s, support_att=support_att_seen)
                 else:
                     if model_type == "MoCo":
-                        score, cos_dist = model.module.encoder_q.cosine_dis(pred_att=v2s, support_att=support_att_seen)
-                        pass
+                            score, cos_dist = model.module.encoder_q.cosine_dis(pred_att=v2s, support_att=support_att_seen)
+                            pass
                     else:
-                        score, cos_dist = model.module.cosine_dis(pred_att=v2s, support_att=support_att_seen)
+                            score, cos_dist = model.module.cosine_dis(pred_att=v2s, support_att=support_att_seen)
 
                 Lreg = Reg_loss(v2s, batch_att, weights)
                 Lcls = CLS_loss(score, batch_label)
@@ -177,10 +178,10 @@ def do_train(
                 loss = lamd[0] * Lcls + lamd[1] * Lreg + 1 * reconstruct_loss
 
                 if CL_loss is not None:
-                    loss += CL_loss * 0.20
+                    loss += CL_loss * 0.2
 
                 if part_CL_loss is not  None:
-                    loss += part_CL_loss * 0.20
+                    loss += part_CL_loss * 0.2
 
                 optimizer.zero_grad()
                 loss.backward()

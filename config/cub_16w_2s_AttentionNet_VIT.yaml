@@ -8,7 +8,7 @@ MODEL:
   #META_ARCHITECTURE: "SimCLR2"
   #META_ARCHITECTURE: "SimCLR3"
   #META_ARCHITECTURE: "AttentionNet2"
-  META_ARCHITECTURE: "SimCLR5"
+  META_ARCHITECTURE: "SimCLR6"
   SCALE: 20.0
   HID_DIM: 0
   BACKBONE:
@@ -18,7 +18,7 @@ MODEL:
   ATTENTION:
     CHANNEL: 512
     WEIGHT_SHARED: True
-    W2V_PATH: "/mnt/mydisk1/home/wangyuan/project/data/w2v"
+    W2V_PATH: "/mnt/mydisk1/wangyuan/project/data/w2v"
   LOSS:
     LAMBDA0: 1.0
     LAMBDA1: 1.0
@@ -46,7 +46,7 @@ DATALOADER:
 
 SOLVER:
   MAX_EPOCH: 3000
-  BASE_LR: 2e-3
+  BASE_LR: 3e-4
   WEIGHT_DECAY: 1e-5
   MOMENTUM: 0.9
   GAMMA: 0.1

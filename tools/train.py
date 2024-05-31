@@ -147,6 +147,6 @@ def main():
 if __name__ == '__main__':
     # torch.distributed.init_process_group('nccl', world_size = 1,rank = 0,init_method = 'file:/home/wangyuan/project/ReZSL/distributed/init_file')
     torch.distributed.init_process_group('nccl', world_size=1, rank=0,
-                                         init_method='file:/mnt/mydisk1/home/wangyuan/project/ReZSL/distributedinit_file')
+                                         init_method='file:/mnt/mydisk1/wangyuan/project/ReZSL/distributedinit_file')
 
     main()
