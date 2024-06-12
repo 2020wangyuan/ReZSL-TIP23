@@ -8,7 +8,7 @@ from REZSL.modeling import weighted_RegressLoss, ADLoss, CPTLoss, build_zsl_pipe
     get_attributes_info, get_attr_group
 from REZSL.data.transforms.data_transform import batch_random_mask
 import random
-from REZSL.utils import  set_seed
+from REZSL.utils import set_seed
 
 
 def do_train(
@@ -77,17 +77,17 @@ def do_train(
         part_CL_logits = 3
         part_CL_labels = 4
         labels = 5
-        reconstruct_loss= 6
-        reconstruct_x= 7
+        reconstruct_loss = 6
+        reconstruct_x = 7
 
         for iteration, (batch_img, batch_att, batch_label) in enumerate(tr_dataloader):
             part_CL_loss = None
             CL_loss = None
             logit = None
             part_CL_logits = None
-            part_CL_labels= None
-            labels= None
-            reconstruct_loss= None
+            part_CL_labels = None
+            labels = None
+            reconstruct_loss = None
             reconstruct_x = None
 
             # 选择用于重构的隐藏层的输出feature
@@ -100,14 +100,12 @@ def do_train(
             batch_img = batch_img.to(device)
 
             # mask图片和embedding
-            #batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.1)
+            # batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.1)
 
             # 只mask embedding
-            _, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.6)
+            _, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.25)
             batch_att = batch_att.to(device)
             batch_label = batch_label.to(device)
-
-
 
             if iteration % 50 == 0:
                 index = torch.argmax(ReZSL.running_weights_Matrix)
@@ -126,21 +124,23 @@ def do_train(
                                                                  masked_one_hot=mask_one_hot,
                                                                  selected_layer=selected_layer)
                 elif model_type == 'SimCLR3':
-                    v2s, reconstruct_x, reconstruct_loss, logit, labels,part_CL_logits,part_CL_labels = model(x=batch_img, target_img=resized_image,
-                                                                                support_att=support_att_seen,
-                                                                                masked_one_hot=mask_one_hot,
-                                                                                selected_layer=selected_layer,
-                                                                                sampler=cl_sampler,
-                                                                                q_labels=batch_label)
+                    v2s, reconstruct_x, reconstruct_loss, logit, labels, part_CL_logits, part_CL_labels = model(
+                        x=batch_img, target_img=resized_image,
+                        support_att=support_att_seen,
+                        masked_one_hot=mask_one_hot,
+                        selected_layer=selected_layer,
+                        sampler=cl_sampler,
+                        q_labels=batch_label)
                 elif (model_type == 'SimCLR3' or model_type == "SimCLR4" or model_type == "SimCLR5"
-                      or model_type == "SimCLR6"):
-                    v2s, reconstruct_x, reconstruct_loss, logit, labels,part_CL_logits,part_CL_labels = model(x=batch_img, target_img=resized_image,
-                                                                                labels = batch_label,
-                                                                                support_att=support_att_seen,
-                                                                                masked_one_hot=mask_one_hot,
-                                                                                selected_layer=selected_layer,
-                                                                                sampler=cl_sampler,
-                                                                                q_labels=batch_label)
+                      or model_type == "SimCLR6" or model_type == "SimCLR7"):
+                    v2s, reconstruct_x, reconstruct_loss, logit, labels, part_CL_logits, part_CL_labels = model(
+                        x=batch_img, target_img=resized_image,
+                        labels=batch_label,
+                        support_att=support_att_seen,
+                        masked_one_hot=mask_one_hot,
+                        selected_layer=selected_layer,
+                        sampler=cl_sampler,
+                        q_labels=batch_label)
 
                 else:
                     v2s, reconstruct_x, reconstruct_loss, logit, labels = model(x=batch_img, target_img=resized_image,
@@ -162,31 +162,30 @@ def do_train(
                     score, cos_dist = model.cosine_dis(pred_att=v2s, support_att=support_att_seen)
                 else:
                     if model_type == "MoCo":
-                            score, cos_dist = model.module.encoder_q.cosine_dis(pred_att=v2s, support_att=support_att_seen)
-                            pass
+                        score, cos_dist = model.module.encoder_q.cosine_dis(pred_att=v2s, support_att=support_att_seen)
+                        pass
                     else:
-                            score, cos_dist = model.module.cosine_dis(pred_att=v2s, support_att=support_att_seen)
+                        score, cos_dist = model.module.cosine_dis(pred_att=v2s, support_att=support_att_seen)
 
                 Lreg = Reg_loss(v2s, batch_att, weights)
                 Lcls = CLS_loss(score, batch_label)
-                if  model_type != 'AttentionNet' and logit is not None :
+                if model_type != 'AttentionNet' and logit is not None:
                     CL_loss = contrastive_loss(logit, labels)
 
-                if  model_type != 'AttentionNet' and part_CL_logits is not None :
+                if model_type != 'AttentionNet' and part_CL_logits is not None:
                     part_CL_loss = contrastive_loss(part_CL_logits, part_CL_labels)
 
                 loss = lamd[0] * Lcls + lamd[1] * Lreg + 1 * reconstruct_loss
 
                 if CL_loss is not None:
-                    loss += CL_loss * 0.2
+                    loss += CL_loss * 0.1
 
-                if part_CL_loss is not  None:
-                    loss += part_CL_loss * 0.2
+                if part_CL_loss is not None:
+                    loss += part_CL_loss * 0.1
 
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-
 
                 if CL_loss is None:
 
@@ -195,7 +194,8 @@ def do_train(
                                 optimizer.param_groups[0]["lr"])
                 elif CL_loss is not None and part_CL_loss is not None:
                     log_info = 'epoch: %d, it: %d/%d  |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss: %.4f, CL_loss: %.4f,part_CL_loss: %.4f, lr: %.10f' % \
-                               (epoch + 1, iteration, num_steps, loss, Lcls, Lreg, reconstruct_loss, CL_loss,part_CL_loss,
+                               (epoch + 1, iteration, num_steps, loss, Lcls, Lreg, reconstruct_loss, CL_loss,
+                                part_CL_loss,
                                 optimizer.param_groups[0]["lr"])
                 else:
                     log_info = 'epoch: %d, it: %d/%d  |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss: %.4f, CL_loss: %.4f, lr: %.10f' % \
@@ -261,16 +261,17 @@ def do_train(
             if len(contrastive_learning_loss_epoch) == 0:
                 contrastive_learning_loss_epoch_mean = 0
             else:
-                contrastive_learning_loss_epoch_mean = sum(contrastive_learning_loss_epoch) / len(contrastive_learning_loss_epoch)
+                contrastive_learning_loss_epoch_mean = sum(contrastive_learning_loss_epoch) / len(
+                    contrastive_learning_loss_epoch)
 
-            if len(part_CL_loss_epoch) ==0:
+            if len(part_CL_loss_epoch) == 0:
                 part_CL_loss_epoch = 0;
             else:
-                part_CL_loss_epoch = sum(part_CL_loss_epoch)/len(part_CL_loss_epoch)
+                part_CL_loss_epoch = sum(part_CL_loss_epoch) / len(part_CL_loss_epoch)
 
             log_info = 'epoch: %d |  loss: %.4f, cls_loss: %.4f, reg_loss: %.4f, reconstruct_loss_epoch: %.4f, contrastive_learning_loss_epoch: %.4f,part_CL_loss_epoch: %.4f, lr: %.10f' % \
                        (epoch + 1, loss_epoch_mean, cls_loss_epoch_mean, reg_loss_epoch_mean,
-                        reconstruct_loss_epoch_mean, contrastive_learning_loss_epoch_mean,part_CL_loss_epoch,
+                        reconstruct_loss_epoch_mean, contrastive_learning_loss_epoch_mean, part_CL_loss_epoch,
                         optimizer.param_groups[0]["lr"])
             print(log_info)
         mask = torch.gt(ReZSL.mean_value, 0.0)

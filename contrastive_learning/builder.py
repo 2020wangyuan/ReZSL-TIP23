@@ -998,8 +998,9 @@ class my_SimCLR5(nn.Module):
 
 class my_SimCLR6(nn.Module):
 
+    ###在这修改T 和 T2
     def __init__(self, build_AttentionNet, cfg,
-                 T=0.12,
+                 T=0.12, T2=0.5,
                  contrastive_learning=True):
         """
         dim: feature dimension (default: 128)
@@ -1010,6 +1011,7 @@ class my_SimCLR6(nn.Module):
         super(my_SimCLR6, self).__init__()
 
         self.T = T
+        self.T2 = T2
 
         # create the encoders
         # num_classes is the output fc dimension
@@ -1043,16 +1045,15 @@ class my_SimCLR6(nn.Module):
 
         # 经过融合后的part feature
         self.part_feature_dim_after_fusing = 128
-        self.fuse_model = fuse_to_get_part_feature(self.dim, cfg,self.part_feature_dim_after_fusing)
+        self.fuse_model = fuse_to_get_part_feature(self.dim, cfg, self.part_feature_dim_after_fusing)
         self.bank = None
 
-
         if cfg.DATASETS.NAME == "CUB":
-            self.bank = MemoryBank(150, 28,self.part_feature_dim_after_fusing)
-
+            ##################################################################################### 请在此处修改factor
+            self.bank = MemoryBank(150, 28, self.part_feature_dim_after_fusing, factor=0.99)
 
     def forward(self, x, support_att, target_img=None, masked_one_hot=None, selected_layer=0, q_labels=None,
-                sampler=None,labels = None):
+                sampler=None, labels=None):
         """
         在forward函数的基础上加入自己的代理任务
         Input:
@@ -1062,8 +1063,6 @@ class my_SimCLR6(nn.Module):
         Output:
             logits, targets
         """
-
-
 
         pos_cat_neg_samples = None
         logits_all = None
@@ -1086,12 +1085,9 @@ class my_SimCLR6(nn.Module):
             self.bank.update(part_feature, q_labels)
             bank_feature = self.bank.get_memory_bank()[q_labels]
             part_CL_logits = torch.einsum('bij,bkl->bik', bank_feature, part_feature)
+            part_CL_logits /= self.T2
             part_CL_label = torch.arange(0, 28).to('cuda')
             part_CL_label = part_CL_label.repeat(part_CL_logits.shape[0], 1)
-
-
-
-
 
             pos_cat_neg_samples = []
             for l in sample_index_list:
@@ -1116,7 +1112,132 @@ class my_SimCLR6(nn.Module):
 
             labels = torch.zeros(logits_all.shape[0], dtype=torch.long).cuda()
 
-            return v2s, reconstruct_x, reconstruct_loss, logits_all, labels,part_CL_logits, part_CL_label
+            return v2s, reconstruct_x, reconstruct_loss, logits_all, labels, part_CL_logits, part_CL_label
+
+        else:
+            v2s = self.encoder_q(x=x,
+                                 support_att=support_att,
+
+                                 )  # queries: NxC
+
+            return v2s
+
+
+class my_SimCLR7(nn.Module):
+
+    def __init__(self, build_AttentionNet, cfg,
+                 T=0.12,
+                 contrastive_learning=True):
+        """
+        dim: feature dimension (default: 128)
+        K: queue size; number of negative keys (default: 65536)
+        m: contrastive_learning momentum of updating key encoder (default: 0.999)
+        T: softmax temperature (default: 0.07)
+        """
+        super(my_SimCLR7, self).__init__()
+
+        self.T = T
+
+        # create the encoders
+        # num_classes is the output fc dimension
+        self.encoder_q = build_AttentionNet(cfg, contrastive_learning=contrastive_learning)
+        self.scls_num = self.encoder_q.scls_num
+        self.attritube_num = self.encoder_q.attritube_num
+        self.dim = self.encoder_q.feat_channel
+
+        self.CLproject = []
+        for i in range(1):
+            layer = nn.Sequential(nn.Linear(self.attritube_num, 1024), nn.ReLU(), nn.LeakyReLU(),
+                                  nn.Linear(1024, 2048), nn.ReLU(), nn.LeakyReLU(),
+                                  nn.Linear(2048, 128), nn.ReLU(),
+                                  ).to('cuda')
+            for i in [0, 3, 6, ]:
+                torch.nn.init.normal_(layer[i].weight, mean=0.0, std=0.01)
+                torch.nn.init.constant_(layer[i].bias, 0.0)  # 初始化偏置为常数，这里设为0
+            self.CLproject.append(layer)
+
+            layer = nn.Sequential(nn.Linear(1, 1024), nn.ReLU(), nn.LeakyReLU(),
+                                  nn.Linear(1024, 2048), nn.ReLU(), nn.LeakyReLU(),
+                                  nn.Linear(2048, self.attritube_num), nn.ReLU(),
+                                  ).to('cuda')
+
+            for i in [0, 3, 6, ]:
+                torch.nn.init.normal_(layer[i].weight, mean=0.0, std=0.01)
+                torch.nn.init.constant_(layer[i].bias, 0.0)  # 初始化偏置为常数，这里设为0
+            self.CLproject.append(layer)
+
+        self.cosine_dis = self.encoder_q.cosine_dis
+
+        # 经过融合后的part feature
+        self.part_feature_dim_after_fusing = 128
+        self.fuse_model = fuse_to_get_part_feature(self.dim, cfg, self.part_feature_dim_after_fusing)
+        self.bank = None
+
+        if cfg.DATASETS.NAME == "CUB":
+            ##################################################################################### 请在此处修改factor
+            self.bank = MemoryBank(150, 28, self.part_feature_dim_after_fusing, factor=0.90)
+
+    def forward(self, x, support_att, target_img=None, masked_one_hot=None, selected_layer=0, q_labels=None,
+                sampler=None, labels=None):
+        """
+        在forward函数的基础上加入自己的代理任务
+        Input:
+            im_q即x: a batch of query images
+            q_att_binary: im_q对应的二进制属性
+            q_labels: im_q对应的标签
+        Output:
+            logits, targets
+        """
+
+        pos_cat_neg_samples = None
+        logits_all = None
+        labels = None
+
+        # compute query features
+
+        if sampler is not None:
+
+            tar_atts, pos_sample_list, neg_samples_list = sampler.sample_from_batch(q_labels)
+            sample_index_list = [i + j for i, j in zip(pos_sample_list, neg_samples_list)]
+            v2s, reconstruct_x, reconstruct_loss, _ = self.encoder_q(x=x, target_img=target_img,
+                                                                     support_att=support_att,
+                                                                     masked_one_hot=masked_one_hot,
+                                                                     selected_layer=selected_layer,
+                                                                     sampled_atts=sampler.target_att)  # queries: NxC
+
+            part_feature = self.encoder_q.part_feature_another_style
+            part_feature = self.fuse_model(part_feature)
+            self.bank.update(part_feature, q_labels)
+            bank_feature = self.bank.get_memory_bank()[q_labels]
+            part_CL_logits = torch.einsum('bij,bkl->bik', bank_feature, part_feature)
+
+            part_CL_label = torch.arange(0, 28).to('cuda')
+            part_CL_label = part_CL_label.repeat(part_CL_logits.shape[0], 1)
+
+            pos_cat_neg_samples = []
+            for l in sample_index_list:
+                cat_sample = v2s.detach().clone()[l]
+                pos_cat_neg_samples.append(cat_sample)
+
+            pos_cat_neg_samples = pad_tensor_list_to_uniform_length2(pos_cat_neg_samples)
+            pos_cat_neg_samples = [
+                self.CLproject[0](pos_cat_neg_samples[i].detach().clone() + self.CLproject[1](tar_atts[i].float())) for
+                i in range(len(pos_cat_neg_samples))]
+            query = [self.CLproject[0](v2s[i].detach().clone() + self.CLproject[1](tar_atts[i].float())) for i in
+                     range(len(tar_atts))]
+
+            logits_all = []
+            for i in range(len(pos_cat_neg_samples)):
+                logits = torch.einsum("c,kc->k", query[i], pos_cat_neg_samples[i])
+                logits_all.append(logits)
+
+            logits_all = torch.stack(logits_all, dim=0)
+
+            logits_all /= self.T
+
+            labels = torch.zeros(logits_all.shape[0], dtype=torch.long).cuda()
+
+            return v2s, reconstruct_x, reconstruct_loss, logits_all, labels, part_CL_logits, part_CL_label
 
         else:
             v2s = self.encoder_q(x=x,
@@ -1133,7 +1254,7 @@ import torch.nn.functional as F
 
 
 class fuse_to_get_part_feature(nn.Module):
-    def __init__(self, input_dim, cfg,output_dim = 128 ,w2v_group_att_path="/mnt/mydisk1/wangyuan/project/ReZSL/token"):
+    def __init__(self, input_dim, cfg, output_dim=128, w2v_group_att_path="/mnt/mydisk1/wangyuan/project/ReZSL/token"):
         super(fuse_to_get_part_feature, self).__init__()
 
         self.data_type = cfg.DATASETS.NAME
@@ -1179,7 +1300,11 @@ class fuse_to_get_part_feature(nn.Module):
 
         self.norm = nn.LayerNorm(self.him_feature)
 
-        self.MLP = nn.Linear(self.him_feature, output_dim)
+        self.MLP = nn.Sequential(
+            nn.Linear(self.him_feature, 1024), nn.LeakyReLU(), nn.LayerNorm(1024),
+            nn.Linear(1024, 512), nn.LeakyReLU(), nn.LayerNorm(512),
+            nn.Linear(512, output_dim), nn.LeakyReLU(),
+        )
 
     def forward(self, x):
         # 使用wav_group_att计算注意力权重
@@ -1192,8 +1317,6 @@ class fuse_to_get_part_feature(nn.Module):
         k = self.norm(k)
         v = self.norm(v)
 
-
-
         q = q.unsqueeze(0).repeat(len(k), 1, 1)
 
         # 计算注意力权重
@@ -1203,20 +1326,20 @@ class fuse_to_get_part_feature(nn.Module):
         att_weights = att_weights * self.group_index
         hidden_feature = torch.bmm(att_weights, v)
 
-        #hidden_feature += v
+        # hidden_feature += v
 
         part_feature = self.norm(hidden_feature)
         part_feature = self.MLP(part_feature)
 
-        #part_feature += hidden_feature
+        # part_feature += hidden_feature
 
         return part_feature
 
 
 import torch
 
-
 import torch
+
 
 class MemoryBank:
     """
@@ -1239,7 +1362,8 @@ class MemoryBank:
         labels_one_hot = torch.nn.functional.one_hot(labels, num_classes=self.class_num).float()
 
         # Expand dimensions to match part_features
-        labels_one_hot_expanded = labels_one_hot.unsqueeze(2).unsqueeze(3).expand(-1, -1, self.att_group_num, self.feature_dim)
+        labels_one_hot_expanded = labels_one_hot.unsqueeze(2).unsqueeze(3).expand(-1, -1, self.att_group_num,
+                                                                                  self.feature_dim)
 
         # Calculate the contribution of each part_feature
         update_contributions = labels_one_hot_expanded * part_features.unsqueeze(1)
@@ -1248,7 +1372,8 @@ class MemoryBank:
         summed_contributions = update_contributions.sum(dim=0)
 
         # Calculate the count of each class in the batch
-        label_counts = labels_one_hot.sum(dim=0).unsqueeze(1).unsqueeze(2).expand(self.class_num, self.att_group_num, self.feature_dim)
+        label_counts = labels_one_hot.sum(dim=0).unsqueeze(1).unsqueeze(2).expand(self.class_num, self.att_group_num,
+                                                                                  self.feature_dim)
 
         # Avoid division by zero by using a small epsilon
         epsilon = 1e-8
@@ -1259,4 +1384,3 @@ class MemoryBank:
 
     def get_memory_bank(self):
         return self.memory_bank
-
