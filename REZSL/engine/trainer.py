@@ -103,7 +103,7 @@ def do_train(
             # batch_img, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.1)
 
             # 只mask embedding
-            _, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.25)
+            _, mask_one_hot = batch_random_mask(batch_img, mask_prob=0.30)
             batch_att = batch_att.to(device)
             batch_label = batch_label.to(device)
 
@@ -118,7 +118,7 @@ def do_train(
 
             if model_type == "BasicNet" or model_type == "AttentionNet" or "MoCo":
                 # v2s = model(x=batch_img, support_att=support_att_seen)
-                if model_type == 'AttentionNet' or model_type == "AttentionNet2":
+                if model_type == 'AttentionNet' or model_type == "AttentionNet2" or model_type == "AttentionNet3":
                     v2s, reconstruct_x, reconstruct_loss = model(x=batch_img, target_img=resized_image,
                                                                  support_att=support_att_seen,
                                                                  masked_one_hot=mask_one_hot,
@@ -178,7 +178,7 @@ def do_train(
                 loss = lamd[0] * Lcls + lamd[1] * Lreg + 1 * reconstruct_loss
 
                 if CL_loss is not None:
-                    loss += CL_loss * 0.1
+                    loss += CL_loss * 0.2
 
                 if part_CL_loss is not None:
                     loss += part_CL_loss * 0.1

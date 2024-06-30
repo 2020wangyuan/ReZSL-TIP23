@@ -530,11 +530,11 @@ class AttentionNet1(nn.Module):
 
         # 768 for base ViT , 1024 for large ViT
         self.mae = [MaskedAutoencoderViT(img_size=224, patch_size=16, embed_dim=c).to(device),
-            MaskedAutoencoderViT(img_size=112, patch_size=8, embed_dim=c).to(device),
-            MaskedAutoencoderViT(img_size=56, patch_size=4, embed_dim=c).to(device),
-            MaskedAutoencoderViT(img_size=28, patch_size=2, embed_dim=c).to(device),
-            MaskedAutoencoderViT(img_size=14, patch_size=1, embed_dim=c).to(device),
-        ]
+                    MaskedAutoencoderViT(img_size=112, patch_size=8, embed_dim=c).to(device),
+                    MaskedAutoencoderViT(img_size=56, patch_size=4, embed_dim=c).to(device),
+                    MaskedAutoencoderViT(img_size=28, patch_size=2, embed_dim=c).to(device),
+                    MaskedAutoencoderViT(img_size=14, patch_size=1, embed_dim=c).to(device),
+                    ]
 
         self.patch_features = None
 
@@ -543,7 +543,7 @@ class AttentionNet1(nn.Module):
 
     # x is masked image
     def forward(self, x, target_img=None, selected_layer=0, label_att=None, label=None, support_att=None,
-                getAttention=False, masked_one_hot=None, sampled_atts=None,):
+                getAttention=False, masked_one_hot=None, sampled_atts=None, ):
         self.patch_features = None
         if self.backbone_type == "resnet":
             feat = self.conv_features(x)  # B， 2048， 14， 14
@@ -559,7 +559,6 @@ class AttentionNet1(nn.Module):
             patch_feat = patch_feat.permute(0, 2, 1)
             B, C = global_feat.shape
 
-
             if getAttention:
                 # attentionNet中的attention，不是ViT中的
                 v2s, attentionMap = self.vit_attention_module(global_feat.view(B, C, 1), patch_feat, support_att,
@@ -572,7 +571,7 @@ class AttentionNet1(nn.Module):
                     global_feat = global_feat.unsqueeze(1)
                     patch_feat = patch_feat.permute(0, 2, 1)
                     cls_and_x = torch.cat((global_feat, patch_feat), dim=1)
-                    #feature_to_be_recon = output_hidden_states[selected_layer]
+                    # feature_to_be_recon = output_hidden_states[selected_layer]
                     feature_to_be_recon = output_hidden_states[int(selected_layer / 3)]
                     reconstruct_x = self.mae[int(selected_layer / 3)].forward_decoder(feature_to_be_recon,
                                                                                       masked_one_hot)
@@ -691,7 +690,7 @@ class AttentionNet1(nn.Module):
         elif self.backbone_type == 'vit':
             x, semantic_feat, output_hidden_states = self.backbone(
                 x)  # if resnet, x: [b,w,h,2048], if vit x: [b,w,h,2048]
-                    # global feat,part feat,hidden_states
+            # global feat,part feat,hidden_states
             return x, semantic_feat, output_hidden_states
 
     def euclidean_dist(self, prediction, support_att, norm=False):
@@ -835,7 +834,7 @@ class AttentionNet2(nn.Module):
 
     # x is masked image
     def forward(self, x, target_img=None, selected_layer=0, label_att=None, label=None, support_att=None,
-                getAttention=False, masked_one_hot=None, sampled_atts=None,sampler = None,q_labels = None):
+                getAttention=False, masked_one_hot=None, sampled_atts=None, sampler=None, q_labels=None):
         self.patch_features = None
         if self.backbone_type == "resnet":
             feat = self.conv_features(x)  # B， 2048， 14， 14
@@ -846,20 +845,20 @@ class AttentionNet2(nn.Module):
                 v2s = self.res_attention_module(feat, support_att)  # B,312
                 return v2s
         else:
-            global_feat, patch_feat, output_hidden_states,vit_attention = self.conv_features(x,True)  # B, 2048, 14, 14
-            vit_attention = vit_attention[-1][:,:,0,1:]
+            global_feat, patch_feat, output_hidden_states, vit_attention = self.conv_features(x,
+                                                                                              True)  # B, 2048, 14, 14
+            vit_attention = vit_attention[-1][:, :, 0, 1:]
             vit_attention = torch.sum(vit_attention, dim=1)
             vit_attention = vit_attention / torch.sum(vit_attention, dim=1, keepdim=True)
 
             hidden_feat = output_hidden_states[-3]
 
             remain_ratio = 0.5
-            _,top_indices = torch.topk(vit_attention, int(vit_attention.shape[1]*remain_ratio), dim = 1)
+            _, top_indices = torch.topk(vit_attention, int(vit_attention.shape[1] * remain_ratio), dim=1)
             sorted_indices = torch.argsort(patch_feat, dim=1)
             selected_sorted_indices = torch.gather(sorted_indices, 1, top_indices.unsqueeze(-1))
             object_feat = torch.gather(hidden_feat, 1, selected_sorted_indices.expand(-1, -1, hidden_feat.size(-1)))
             object_feat = object_feat.permute(0, 2, 1)
-
 
             self.patch_features = patch_feat
             patch_feat = patch_feat.permute(0, 2, 1)
@@ -984,7 +983,7 @@ class AttentionNet2(nn.Module):
         else:
             return v2s
 
-    def conv_features(self, x,output_attention = None):
+    def conv_features(self, x, output_attention=None):
         '''
         the feature input to prototype layer
         '''
@@ -992,10 +991,10 @@ class AttentionNet2(nn.Module):
             x = self.backbone(x)  # if resnet, x: [b,w,h,2048], if vit x: [b,w,h,2048]
             return x
         elif self.backbone_type == 'vit':
-            x, semantic_feat, output_hidden_states,vit_attention = self.backbone(
-                x,output_attention)  # if resnet, x: [b,w,h,2048], if vit x: [b,w,h,2048]
+            x, semantic_feat, output_hidden_states, vit_attention = self.backbone(
+                x, output_attention)  # if resnet, x: [b,w,h,2048], if vit x: [b,w,h,2048]
             # global feat,part feat,hidden_states
-            return x, semantic_feat, output_hidden_states,vit_attention
+            return x, semantic_feat, output_hidden_states, vit_attention
 
     def euclidean_dist(self, prediction, support_att, norm=False):
         if norm == False:
@@ -1037,3 +1036,293 @@ class AttentionNet2(nn.Module):
             for p in self.backbone.parameters():
                 p.requires_grad = False
 
+
+class AttentionNet3(nn.Module):
+    """
+    加入mae的attentionNet1
+    """
+
+    def __init__(self, backbone, backbone_type, ft_flag, img_size, hid_dim, c, w, h,
+                 attritube_num, cls_num, ucls_num, attr_group, w2v,
+                 scale=20.0, device=None, Contrastive_Learning=False):
+        super(AttentionNet3, self).__init__()
+
+        self.Contrastive_Learning = Contrastive_Learning
+        if Contrastive_Learning == True:
+            """
+            self.CLproject = nn.Sequential(nn.Linear(attritube_num, 512), nn.ReLU(),
+                                           nn.Linear(512, 1024), nn.ReLU(),
+                                           nn.Linear(1024, 128), nn.ReLU())
+            """
+            self.CLproject = nn.Sequential(nn.Linear(c, 128), nn.ReLU())
+
+        # self.prototype_shape = prototype_shape
+        self.device = device
+
+        self.name = "AttentionNet"
+
+        self.img_size = img_size
+        # self.prototype_shape = prototype_shape
+        self.attritube_num = attritube_num
+
+        self.feat_channel = c
+        self.feat_w = w
+        self.feat_h = h
+        self.feat_n = w * h
+
+        self.ucls_num = ucls_num
+        self.scls_num = cls_num - ucls_num
+        self.attr_group = attr_group
+        # global branch
+
+        self.w2v_att = torch.from_numpy(w2v).float().to(self.device)  # 312 * 300
+        assert self.w2v_att.shape[0] == self.attritube_num
+        _, self.w2v_length = self.w2v_att.shape
+
+        if scale <= 0:
+            self.scale = torch.ones(1) * 20.0
+        else:
+            self.scale = torch.tensor(scale)
+        if attritube_num == 85 and backbone_type == 'resnet':
+            self.W = nn.Parameter(nn.init.normal_(torch.empty(self.w2v_att.shape[1], self.feat_channel)),
+                                  requires_grad=True)  # 300 * 2048
+            self.V = nn.Parameter(nn.init.normal_(torch.empty(self.feat_channel, self.attritube_num)),
+                                  requires_grad=True)
+            self.ratio = 0.125
+        else:
+            self.ratio = 1.0
+
+        self.backbone_type = backbone_type
+        self.backbone = backbone  # requires_grad = True
+
+        self.ft_flag = ft_flag
+        self.check_fine_tune()
+
+        # local branch
+        if attritube_num == 85 and backbone_type == 'resnet':
+            self.med_dim = 300  # 1024
+            self.QueryW = nn.Sequential(nn.Linear(self.w2v_length, self.med_dim))  # L,M = 300,1024
+            self.KeyW = nn.Sequential(nn.Linear(self.feat_channel, self.med_dim))  # C,M = 2048,1024
+            self.ValueW = nn.Sequential(nn.Linear(self.feat_channel, self.med_dim))  # C,M = 2048,1024
+            self.W_o = nn.Sequential(nn.Linear(self.med_dim, self.feat_channel))  # M,C = 1024,2048
+        else:
+            self.med_dim = 1024  # 1024
+            self.QueryW = nn.Linear(self.w2v_length, self.med_dim)  # L,M = 300,1024
+            self.KeyW = nn.Linear(self.feat_channel, self.med_dim)  # C,M = 2048,1024
+            self.ValueW = nn.Linear(self.feat_channel, self.med_dim)  # C,M = 2048,1024
+            self.W_o = nn.Linear(self.med_dim, self.feat_channel)  # M,C = 1024,2048
+
+        # hidden layer or not
+        self.hid_dim = hid_dim
+        if self.hid_dim == 0:
+            self.V_att_final_branch = nn.Parameter(nn.init.normal_(torch.empty(self.attritube_num, self.feat_channel)),
+                                                   requires_grad=True)  # S, C
+        else:
+            self.V_att_hidden_branch = nn.Sequential(nn.Linear(self.feat_channel, self.hid_dim))  # H, C
+            self.V_att_final_branch = nn.Parameter(nn.init.normal_(torch.empty(self.attritube_num, self.hid_dim)),
+                                                   requires_grad=True)  # S, H
+
+        # 768 for base ViT , 1024 for large ViT
+        self.mae = [MaskedAutoencoderViT(img_size=224, patch_size=16, embed_dim=c).to(device),
+                    MaskedAutoencoderViT(img_size=112, patch_size=8, embed_dim=c).to(device),
+                    MaskedAutoencoderViT(img_size=56, patch_size=4, embed_dim=c).to(device),
+                    MaskedAutoencoderViT(img_size=28, patch_size=2, embed_dim=c).to(device),
+                    MaskedAutoencoderViT(img_size=14, patch_size=1, embed_dim=c).to(device),
+                    ]
+
+        self.patch_features = None
+
+        self.part_feature = None
+        self.part_feature_another_style = None
+
+    # x is masked image
+    def forward(self, x, target_img=None, selected_layer=0, label_att=None, label=None, support_att=None,
+                getAttention=False, masked_one_hot=None, sampled_atts=None,sampler=None,q_labels=None ):
+        self.patch_features = None
+        if self.backbone_type == "resnet":
+            feat = self.conv_features(x)  # B， 2048， 14， 14
+            if getAttention:
+                v2s, attentionMap = self.res_attention_module(feat, support_att, getAttention)  # B, 312
+                return v2s, attentionMap
+            else:
+                v2s = self.res_attention_module(feat, support_att)  # B,312
+                return v2s
+        else:
+            global_feat, patch_feat, output_hidden_states = self.conv_features(x)  # B, 2048, 14, 14
+            self.patch_features = patch_feat
+            patch_feat = patch_feat.permute(0, 2, 1)
+            B, C = global_feat.shape
+
+            if getAttention:
+                # attentionNet中的attention，不是ViT中的
+                v2s, attentionMap = self.vit_attention_module(global_feat.view(B, C, 1), patch_feat, support_att,
+                                                              getAttention)  # B, 312
+                return v2s, attentionMap
+            else:
+                v2s = self.vit_attention_module(global_feat.view(B, C, 1), patch_feat, support_att)  # B,312
+
+                if masked_one_hot is not None:
+                    global_feat = global_feat.unsqueeze(1)
+                    patch_feat = patch_feat.permute(0, 2, 1)
+                    cls_and_x = torch.cat((global_feat, patch_feat), dim=1)
+                    # feature_to_be_recon = output_hidden_states[selected_layer]
+                    feature_to_be_recon = output_hidden_states[int(selected_layer / 3)]
+                    reconstruct_x = self.mae[int(selected_layer / 3)].forward_decoder(feature_to_be_recon,
+                                                                                      masked_one_hot)
+                    reconstruct_loss = self.mae[int(selected_layer / 3)].forward_loss(target_img, reconstruct_x,
+                                                                                      masked_one_hot)
+                    if self.Contrastive_Learning == True:
+                        # sampled_atts = torch.tensor(sampled_atts).to('cuda').unsqueeze(0).t() / 31200
+                        sampled_atts = torch.tensor(sampled_atts).to('cuda').unsqueeze(0).t() * 0
+                        result = global_feat.squeeze(1) + sampled_atts.view(-1, 1)
+                        CLfeature = self.CLproject(result)
+                        return v2s, reconstruct_x, reconstruct_loss, CLfeature
+                    else:
+                        return v2s, reconstruct_x, reconstruct_loss
+                else:
+                    if self.Contrastive_Learning == True and sampled_atts is not None:
+                        # sampled_atts = torch.tensor(sampled_atts).to('cuda').unsqueeze(0).t() / 31200
+                        sampled_atts = torch.tensor(sampled_atts).to('cuda').unsqueeze(0).t() * 0
+                        result = global_feat.squeeze(1) + sampled_atts.view(-1, 1)
+                        CLfeature = self.CLproject(result)
+                        return v2s, CLfeature
+                    else:
+                        return v2s
+
+    def vit_attention_module(self, global_feat, patch_feat, s, getAttention=False):
+        """
+        global_feat: [B, C, 1]
+        patch_feat: [B, C, N=W*H]
+        """
+        B, C, N = patch_feat.shape
+        W = H = int(N ** 0.5)
+        S, L = self.w2v_att.shape
+        M = self.med_dim
+
+        feat = torch.cat([global_feat, patch_feat], dim=2)  # [B, C, N+1]
+
+        # attention feature
+        w2v_att = self.w2v_att.to(torch.cuda.current_device())
+        query = self.QueryW(w2v_att)  # [S, L]*[L,M] -> [S,M]
+        query_batch = query.unsqueeze(0).repeat(B, 1, 1)  # [S,M] -> [1,S,M] -> [B,S,M]
+        key = self.KeyW(feat.permute(0, 2, 1))  # [B, C, N+1] -> [B, N+1, C] -> [B, N+1, M]
+        value = self.ValueW(feat.permute(0, 2, 1))  # [B, C, N+1] -> [B, N+1, C] -> [B, N+1, M]
+
+        attention = F.softmax(torch.matmul(query_batch, key.permute(0, 2, 1)),
+                              dim=2)  # [B,S,M],[B,N,M] -> [B,S,M],[B,M,N] -> [B, S, N]
+        attented_feat = torch.matmul(attention, value)  # [B, S, N] * [B, N, M] -> [B,S,M]
+        attented_feat_o = self.W_o(attented_feat)  # [B,S,M] -> [B,S,C]
+
+        feat_pool = F.avg_pool1d(feat, kernel_size=(N + 1))  # B, C
+        feat_reshape_repeat = feat_pool.view(B, 1, -1).expand(B, self.attritube_num, C)  # B, S, C
+        attented_feat_final = feat_reshape_repeat + self.ratio * attented_feat_o  # [B,S,C]
+
+        # use attented_feat_final as part feature
+        self.part_feature = None
+        self.part_feature = attented_feat_final
+        self.part_feature_another_style = None
+        self.part_feature_another_style = attented_feat_o
+
+        # visual to semantic
+        if self.hid_dim == 0:
+            v2s = torch.einsum('BSC,SC->BS', attented_feat_final,
+                               self.V_att_final_branch)  # [B,312,2048] * [312, 2048] -> [B,312,2048] -> [B,312]
+        else:
+            attented_feat_hid = self.V_att_hidden_branch(attented_feat_final)  # [B,312,2048] -> [B,312,4096]
+            v2s = torch.einsum('BSH,SH->BS', attented_feat_hid, self.V_att_final_branch)
+        if getAttention:
+            return v2s, attention
+        else:
+            return v2s
+
+    def res_attention_module(self, feat, s, getAttention=False):
+        """
+        feat: [B, C, W, H]
+        """
+        B, C, W, H = feat.shape
+        N = W * H
+        S, L = self.w2v_att.shape
+        M = self.med_dim
+        W = H = int(N ** 0.5)
+        # attention feature
+        feat_reshape = feat.reshape(B, C, W * H)  # B, C, N=WH
+        w2v_att = self.w2v_att.to(torch.cuda.current_device())
+        query = self.QueryW(w2v_att)  # [S, L]*[L,M] -> [S,M]
+        query_batch = query.unsqueeze(0).repeat(B, 1, 1)  # [S,M] -> [1,S,M] -> [B,S,M]
+        key = self.KeyW(feat_reshape.permute(0, 2, 1))  # [B, C, N] -> [B, N, C] -> [B, N, M]
+        value = self.ValueW(feat_reshape.permute(0, 2, 1))  # [B, C, N] -> [B, N, C] -> [B, N, M]
+
+        attention = F.softmax(torch.matmul(query_batch, key.permute(0, 2, 1)),
+                              dim=2)  # [B,S,M],[B,N,M] -> [B,S,M],[B,M,N] -> [B, S, N]
+        attented_feat = torch.matmul(attention, value)  # [B, S, N] * [B, N, M] -> [B,S,M]
+        attented_feat_o = self.W_o(attented_feat)  # [B,S,M] -> [B,S,C]
+
+        feat_pool = F.avg_pool2d(feat, kernel_size=(W, H)).view(B, 1, -1)  # B, C
+        feat_reshape_repeat = feat_pool.expand(B, self.attritube_num, C)  # B, S, C
+        attented_feat_final = feat_reshape_repeat + self.ratio * attented_feat_o  # [B,S,C]
+
+        # visual to semantic
+        if self.hid_dim == 0:
+            v2s = torch.einsum('BSC,SC->BS', attented_feat_final,
+                               self.V_att_final_branch)  # [B,312,2048] * [312, 2048] -> [B,312,2048] -> [B,312]
+        else:
+            attented_feat_hid = self.V_att_hidden_branch(attented_feat_final)  # [B,312,2048] -> [B,312,4096]
+            v2s = torch.einsum('BSH,SH->BS', attented_feat_hid,
+                               self.V_att_final_branch)  # [B,312,4096] * [312, 4096] -> [B,312]
+        if getAttention:
+            return v2s, attention
+        else:
+            return v2s
+
+    def conv_features(self, x):
+        '''
+        the feature input to prototype layer
+        '''
+        if self.backbone_type == 'resnet':
+            x = self.backbone(x)  # if resnet, x: [b,w,h,2048], if vit x: [b,w,h,2048]
+            return x
+        elif self.backbone_type == 'vit':
+            x, semantic_feat, output_hidden_states = self.backbone(
+                x)  # if resnet, x: [b,w,h,2048], if vit x: [b,w,h,2048]
+            # global feat,part feat,hidden_states
+            return x, semantic_feat, output_hidden_states
+
+    def euclidean_dist(self, prediction, support_att, norm=False):
+        if norm == False:
+            N, S = prediction.shape
+            C, S = support_att.shape
+
+            support_att_expand = support_att.unsqueeze(0).expand(N, C, S)
+            prediction_expand = prediction.unsqueeze(1).expand(N, C, S)
+            offset = torch.sum((prediction_expand - support_att_expand) ** 2, dim=2)  # [N, C, S]-->[N,C]
+            return offset
+        else:
+            N, S = prediction.shape
+            C, S = support_att.shape
+            support_att_norm = torch.norm(support_att, p=2, dim=1).unsqueeze(1).expand_as(support_att)
+            support_att_normalized = support_att.div(support_att_norm + 1e-10)
+            prediction_norm = torch.norm(prediction, p=2, dim=1).unsqueeze(1).expand_as(prediction)
+            prediction_normalized = prediction.div(prediction_norm + 1e-10)
+
+            support_att_expand = support_att_normalized.unsqueeze(0).expand(N, C, S)
+            prediction_expand = prediction_normalized.unsqueeze(1).expand(N, C, S)
+            offset = torch.sum((prediction_expand - support_att_expand) ** 2, dim=2)  # [N, C, S]-->[N,C]
+
+            return offset
+
+    def cosine_dis(self, pred_att, support_att):
+        pred_att_norm = torch.norm(pred_att, p=2, dim=1).unsqueeze(1).expand_as(pred_att)
+        pred_att_normalized = pred_att.div(pred_att_norm + 1e-10)
+        support_att_norm = torch.norm(support_att, p=2, dim=1).unsqueeze(1).expand_as(support_att)
+        support_att_normalized = support_att.div(support_att_norm + 1e-10)
+        cos_dist = torch.einsum('bd,nd->bn', pred_att_normalized, support_att_normalized)
+        score = cos_dist * self.scale  # B, cls_num
+        return score, cos_dist
+
+    def check_fine_tune(self):
+        if self.ft_flag:
+            for p in self.backbone.parameters():
+                p.requires_grad = True
+        else:
+            for p in self.backbone.parameters():
+                p.requires_grad = False

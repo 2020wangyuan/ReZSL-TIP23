@@ -1,18 +1,95 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="wangyuan@10.21.40.184:22 password" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="wangyuan@10.21.40.72:22 password (3)" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="622">
+      <paths name="622old-for-ReZSL">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/wangyuan/project/ReZSL" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/project/ReZSL" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
       <paths name="wangyuan@10.21.40.184:22 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/wangyuan/project/ReZSL" local="$PROJECT_DIR$" />
+            <mapping deploy="/mnt/mydisk1/wangyuan/project/ReZSL" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="wangyuan@10.21.40.184:22 password (2)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="wangyuan@10.21.40.184:22 password (3)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/mnt/mydisk1/wangyuan/project/ReZSL" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="wangyuan@10.21.40.184:22 password (4)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="wangyuan@10.21.40.72:22 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="wangyuan@10.21.40.72:22 password (2)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="wangyuan@10.21.40.72:22 password (3)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/wangyuan/project/ReZSL" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="wangyuan@10.21.40.72:22 password (4)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="wangyuan@10.21.40.72:22 password (5)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="wangyuan@10.21.40.72:22 password (6)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="wangyuan@10.21.40.72:22 password (7)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="wangyuan@10.21.40.72:22 password (8)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
